@@ -8,6 +8,7 @@ import re
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+import plotly.graph_objects as go
 
 # Load environment variables if using .env file
 load_dotenv()
@@ -51,6 +52,79 @@ def process_multiple_pdfs(uploaded_files):
         })
 
     return processed_data
+
+
+# Function to create a gauge chart
+def create_gauge_chart(value, max_value=100):
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        gauge=dict(
+            axis=dict(range=[0, max_value], tickcolor="black", ticklen=5, ticksuffix=""),
+            bar=dict(color="royalblue"),
+            bgcolor="lightgray",
+            bordercolor="black",
+            borderwidth=2,
+            steps=[
+                dict(range=[0, max_value * 0.5], color="lightgreen"),
+                dict(range=[max_value * 0.5, max_value], color="lightcoral"),
+            ],
+        ),
+        title={"text": "Resume ATS Score", "font": {"size": 24, "color": "black"}},
+    ))
+    fig.update_layout(
+        paper_bgcolor="white",
+        font=dict(size=20, color="black"),
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=300,
+        width=400
+    )
+    return fig
+
+
+
+
+
+
+def extract_score_and_feedback(result_text):
+    # Initialize variables
+    score = 0
+    feedback = "No feedback available."
+    
+    # Try to extract score
+    score_patterns = [
+        r'(\d+)%',  # Matches "80%"
+        r'(\d+)/100',  # Matches "80/100"
+        r'(\d+) out of 100',  # Matches "80 out of 100"
+        r'score of (\d+)',  # Matches "score of 80"
+        r'rate this resume a (\d+)',  # Matches "rate this resume a 8"
+    ]
+    
+    for pattern in score_patterns:
+        match = re.search(pattern, result_text, re.IGNORECASE)
+        if match:
+            score = int(match.group(1))
+            # If score is out of 10, convert to percentage
+            if pattern.endswith('(\d+)') and score <= 10:
+                score *= 10
+            break
+    
+    # Try to extract feedback
+    feedback_patterns = [
+        r'(\d+)%\.?\s*(.+)',  # Matches "80%. The resume is..."
+        r'Overall,?\s*(.+)',  # Matches "Overall, the resume is..."
+        r'In summary,?\s*(.+)',  # Matches "In summary, the resume..."
+        r'(?<=\n)(?!(\d+%|score:))(.+)',  # Matches any line that doesn't start with a score
+    ]
+    
+    for pattern in feedback_patterns:
+        match = re.search(pattern, result_text, re.DOTALL | re.IGNORECASE)
+        if match:
+            feedback = match.group(1) if len(match.groups()) == 1 else match.group(2)
+            feedback = feedback.strip()
+            break
+    
+    return score, feedback
 
 def extract_name(text):
     match = re.search(r'^([A-Z][a-z]+ [A-Z][a-z]+)', text)
@@ -97,6 +171,12 @@ def extract_education(text):
         if level.lower() in text.lower():
             return level
     return "Unknown"
+
+
+
+
+
+
 
 # Analysis functions
 def generate_summary_table(df):
@@ -202,11 +282,23 @@ def student_function():
                 st.markdown(result_text)
         if st.button("Calculate Total ATS "):
             with st.spinner("Calculating Grade..."): 
-                response = genai.generate_text(prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage or grade of resume on any job(A,B,C) also check they have metioned ddetails such as eduction, experience, skills, etc. in the resume. and based on that grade it
+                response = genai.generate_text(prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 t0 100 
                                                {job_description}Resume content:{pdf_content}""")
-                result_text = response.result # Assuming the response is structured with a 'result' key
+                result_text = response.result 
                 st.markdown(result_text)
-           
+                score, feedback = extract_score_and_feedback(result_text)
+
+                # Debug prints for extracted data
+                st.write("Feedback:", feedback)
+                st.write("Extracted Score:", score)
+
+                        # Create and display the gauge chart
+                fig_gauge = create_gauge_chart(score)
+                st.plotly_chart(fig_gauge)
+
+                        # Display feedback and score
+                st.markdown(feedback)
+                st.write(f"Score: {score}%")
 
     else:
         st.warning("Please upload a PDF resume to proceed.")
