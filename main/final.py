@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 import plotly.graph_objects as go
+from streamlit_navigation_bar import st_navbar
 
 # Load environment variables if using .env file
 load_dotenv()
@@ -213,6 +214,15 @@ def create_bar_graph(df, column):
     plt.tight_layout()
     return fig
 
+
+
+
+#home Page
+def home():
+    st.write("Welcome to the Resume Analyzer application.")
+    st.write("Please select a page from the sidebar:")
+    st.write("- Student: Upload and analyze individual resumes")
+    st.write("- Admin: Analyze multiple resumes and view statistics")
 # Admin page
 def admin_function():
     st.title("Admin Dashboard")
@@ -289,38 +299,62 @@ def student_function():
                 score, feedback = extract_score_and_feedback(result_text)
 
                 # Debug prints for extracted data
-                st.write("Feedback:", feedback)
-                st.write("Extracted Score:", score)
+                # st.write("Feedback:", feedback)
+                # st.write("Extracted Score:", score)
 
                         # Create and display the gauge chart
                 fig_gauge = create_gauge_chart(score)
                 st.plotly_chart(fig_gauge)
 
                         # Display feedback and score
-                st.markdown(feedback)
+                # st.markdown(feedback)
                 st.write(f"Score: {score}%")
 
     else:
         st.warning("Please upload a PDF resume to proceed.")
 
+
+def contact():
+    st.title("Contact Us")
+    st.write("For any queries or support, please contact us at:")
+
+    
+    
+    
 # Main function to run the Streamlit app
 def main():
-    st.set_page_config(page_title="Resume Analyzer", layout="wide")
-
-    st.title("Resume Analyzer")
-
-    st.write("Welcome to the Resume Analyzer application.")
-    st.write("Please select a page from the sidebar:")
-    st.write("- Student: Upload and analyze individual resumes")
-    st.write("- Admin: Analyze multiple resumes and view statistics")
-
-    st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Select a page:", ["Student", "Admin"])
-
-    if page == "Student":
+    st.set_page_config(initial_sidebar_state="collapsed")
+    page= ["Home", "Student", "Admin", "Contact"]
+    styles = {
+    "nav": {
+        "background-color": "rgb(123, 209, 146)",
+    },
+    "div": {
+        "max-width": "32rem",
+    },
+    "span": {
+        "border-radius": "0.5rem",
+        "color": "rgb(49, 51, 63)",
+        "margin": "0 0.125rem",
+        "padding": "0.4375rem 0.625rem",
+    },
+    "active": {
+        "background-color": "rgba(255, 255, 255, 0.25)",
+    },
+    "hover": {
+        "background-color": "rgba(255, 255, 255, 0.35)",
+    },
+}
+    page= st_navbar(page, styles=styles)
+    
+    if page == "Home":
+        home()
+    elif page == "Student":
         student_function()
     elif page == "Admin":
         admin_function()
+    elif page == "Contact":
+        contact()
 
 if __name__ == "__main__":
     main()
