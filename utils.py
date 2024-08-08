@@ -4,7 +4,7 @@ import PyPDF2
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-
+#student page
 def process_single_pdf(uploaded_file):
     if uploaded_file is None:
         raise FileNotFoundError("No file uploaded")
@@ -15,31 +15,6 @@ def process_single_pdf(uploaded_file):
         text += page.extract_text()
 
     return text
-
-def process_multiple_pdfs(uploaded_files):
-    processed_data = []
-
-    for uploaded_file in uploaded_files:
-        pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-
-        name = extract_name(text)
-        skills = extract_skills(text)
-        department = extract_department(text)
-        experience = extract_experience(text)
-        education = extract_education(text)
-
-        processed_data.append({
-            "name": name,
-            "skills": skills,
-            "department": department,
-            "experience": experience,
-            "education": education
-        })
-
-    return processed_data
 
 def extract_name(text):
     match = re.search(r'^([A-Z][a-z]+ [A-Z][a-z]+)', text)
@@ -66,7 +41,7 @@ def extract_skills(text):
 
 def extract_department(text):
     departments = {
-        "IT": ["Information Technology", "Computer Technology", "IT", "Artificial intelligence and data science", "Artificial intelligence and machine learning", "computer science and design", "computer science and engineering", "computer science and mathematics", "computer science and physics", "computer science and statistics", "computer science and technology"],
+        "Computer Branches": ["Information Technology", "Computer Technology", "IT", "Artificial intelligence and data science", "Artificial intelligence and machine learning", "computer science and design", "computer science and engineering", "computer science and mathematics", "computer science and physics", "computer science and statistics", "computer science and technology"],
         "Engineering": ["Engineering", "Mechanical", "Electrical"],
         "Marketing": ["Marketing", "Sales", "Advertising"],
         "Finance": ["Finance", "Accounting", "Banking"]
@@ -149,36 +124,29 @@ def create_gauge_chart(value, max_value=100):
     )
     return fig
 
-def generate_summary_table(df):
-    summary = df.groupby('department').agg({
-        'name': 'count',
-        'experience': 'mean',
-        'skills': lambda x: ', '.join(set(', '.join(x).split(', ')))
-    }).reset_index()
-    summary.columns = ['Department', 'Candidates', 'Avg Experience', 'Skills']
-    summary['Avg Experience'] = summary['Avg Experience'].round(1)
-    return summary
 
-def create_pie_chart(df, column):
-    fig, ax = plt.subplots()
-    df[column].value_counts().plot(kind='pie', ax=ax, autopct='%1.1f%%')
-    ax.set_title(f'{column.capitalize()} Distribution')
-    return fig
+#admin page
+def process_multiple_pdfs(uploaded_files):
+    processed_data = []
 
-def create_line_graph(df, x_column, y_column):
-    fig, ax = plt.subplots()
-    df.groupby(x_column)[y_column].mean().plot(kind='line', ax=ax)
-    ax.set_title(f'{y_column.capitalize()} by {x_column.capitalize()}')
-    ax.set_xlabel(x_column.capitalize())
-    ax.set_ylabel(y_column.capitalize())
-    return fig
+    for uploaded_file in uploaded_files:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
 
-def create_bar_graph(df, column):
-    fig, ax = plt.subplots()
-    df[column].value_counts().plot(kind='bar', ax=ax)
-    ax.set_title(f'Candidates by {column.capitalize()}')
-    ax.set_xlabel(column.capitalize())
-    ax.set_ylabel('Number of Candidates')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    return fig
+        name = extract_name(text)
+        skills = extract_skills(text)
+        department = extract_department(text)
+        experience = extract_experience(text)
+        education = extract_education(text)
+
+        processed_data.append({
+            "name": name,
+            "skills": skills,
+            "department": department,
+            "experience": experience,
+            "education": education
+        })
+
+    return processed_data

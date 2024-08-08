@@ -6,7 +6,7 @@ from student import student_function
 from admin import admin_function
 from contact import contact
 
-# Load environment variables if using .env file
+
 load_dotenv()
 
 # Main function to run the Streamlit app
@@ -16,7 +16,8 @@ def main():
     styles = {
         "nav": {
             "background-color": "rgb(123, 209, 146)",
-        },
+            #  "margin-top": "1.5rem",         
+            },
         "div": {
             "max-width": "32rem",
         },
@@ -34,6 +35,8 @@ def main():
         },
     }
     page = st_navbar(page, styles=styles)
+    
+    
     
     if page == "Home":
         home()

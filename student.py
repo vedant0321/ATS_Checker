@@ -3,8 +3,7 @@ import google.generativeai as genai
 from utils import process_single_pdf, extract_score_and_feedback, create_gauge_chart
 
 # Configure generative AI with API key
-genai.configure(api_key='AIzaSyAdN9CPrHC7AH7yiI8Yh_8fGo8Knl97AcM')  # Replace with your actual API key
-
+genai.configure(api_key='AIzaSyAdN9CPrHC7AH7yiI8Yh_8fGo8Knl97AcM')
 def student_function():
     st.title("Student Resume Analysis")
 
