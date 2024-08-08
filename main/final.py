@@ -76,9 +76,9 @@ def create_gauge_chart(value, max_value=100):
     fig.update_layout(
         paper_bgcolor="white",
         font=dict(size=20, color="black"),
-        margin=dict(l=20, r=20, t=20, b=20),
-        height=300,
-        width=400
+        margin=dict(l=40, r=40, t=20, b=20),
+        height=400,
+        width=600
     )
     return fig
 
@@ -94,19 +94,19 @@ def extract_score_and_feedback(result_text):
     
     # Try to extract score
     score_patterns = [
-        r'(\d+)%',  # Matches "80%"
-        r'(\d+)/100',  # Matches "80/100"
-        r'(\d+) out of 100',  # Matches "80 out of 100"
-        r'score of (\d+)',  # Matches "score of 80"
-        r'rate this resume a (\d+)',  # Matches "rate this resume a 8"
+        (r'(\d+)%', 100),  # Matches "80%"
+        (r'(\d+)/100', 100),  # Matches "80/100"
+        (r'(\d+) out of 100', 100),  # Matches "80 out of 100"
+        (r'score of (\d+)', 100),  # Matches "score of 80"
+        (r'rate this resume a (\d+)', 10),  # Matches "rate this resume a 8"
     ]
     
-    for pattern in score_patterns:
+    for pattern, max_score in score_patterns:
         match = re.search(pattern, result_text, re.IGNORECASE)
         if match:
             score = int(match.group(1))
-            # If score is out of 10, convert to percentage
-            if pattern.endswith('(\d+)') and score <= 10:
+            # If max_score is 10, convert to percentage
+            if max_score == 10:
                 score *= 10
             break
     
@@ -126,6 +126,8 @@ def extract_score_and_feedback(result_text):
             break
     
     return score, feedback
+
+
 
 def extract_name(text):
     match = re.search(r'^([A-Z][a-z]+ [A-Z][a-z]+)', text)
@@ -217,12 +219,23 @@ def create_bar_graph(df, column):
 
 
 
+
+
 #home Page
 def home():
     st.write("Welcome to the Resume Analyzer application.")
     st.write("Please select a page from the sidebar:")
     st.write("- Student: Upload and analyze individual resumes")
     st.write("- Admin: Analyze multiple resumes and view statistics")
+
+
+
+
+
+
+
+
+
 # Admin page
 def admin_function():
     st.title("Admin Dashboard")
@@ -260,6 +273,17 @@ def admin_function():
 
     else:
         st.warning("Please upload PDF resumes to proceed with analysis.")
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
 # Student page
 def student_function():
@@ -271,7 +295,7 @@ def student_function():
         pdf_content = process_single_pdf(uploaded_file)
 
         job_description = st.text_area("Enter the job description")
-
+        
         if st.button("ATS Check based on Job Description"):
             with st.spinner("ATS Checking..."):
                 response = genai.generate_text(prompt=f"""You are an skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality, your task is to evaluate the resume against the provided job description. give me the percentage of match if the resume matches the job description. First the output should come as percentage and then keywords missing and last final thoughts.{job_description}{pdf_content}""")
@@ -312,12 +336,31 @@ def student_function():
 
     else:
         st.warning("Please upload a PDF resume to proceed.")
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
 
 def contact():
     st.title("Contact Us")
     st.write("For any queries or support, please contact us at:")
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
     
@@ -346,6 +389,8 @@ def main():
     },
 }
     page= st_navbar(page, styles=styles)
+    
+    st.title("Resume Analyzer and visualizer for academic Institutions")
     
     if page == "Home":
         home()
