@@ -4,16 +4,25 @@ import plotly.express as px
 import re
 from PyPDF2 import PdfReader
 
-# Function definitions
 
+#Name Extraction Function
 def extract_name(text):
-    exclude_words = set(['java', 'script', 'data', 'science', 'cloud', 'technologies', 'web', 'mobile', 'development'])
-    words = text.split()
-    filtered_words = [word for word in words if word.lower() not in exclude_words]
-    filtered_text = ' '.join(filtered_words)
-    name_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}\b'
-    names = re.findall(name_pattern, filtered_text)
-    return names[0] if names else "Unknown"
+    """A simplified version to just see what names are being extracted."""
+    lines = text.split('\n')
+    
+    for line in lines:
+        # Basic cleaning
+        line = re.sub(r'[^a-zA-Z\s]', '', line).strip()
+        
+        # Just split and check each word
+        words = line.split()
+        if len(words) > 1:  # Assuming names have at least two parts
+            # Assuming the name is in the first couple of lines
+            return ' '.join(words[:2])
+    
+    return "Unknown"
+
+# Extracting Experience, Education, Department and Skills
 
 def extract_experience(text):
     experience_patterns = [
@@ -43,11 +52,14 @@ def extract_education(text):
 
 def extract_department(text):
     departments = {
-        'Computer Science': r'\b(Computer Science|CS|Software Engineering|Web Development|Mobile Development)\b',
+        'Computer Science & Technology': r'\b(Computer Science|C.Tech|CT)\b',
         'Information Technology': r'\b(Information Technology|IT)\b',
-        'Electronics': r'\b(Electronics|ECE|Electrical Engineering)\b',
+        'Electronics': r'\b(Electronics|ECE|Electrical Engineering|Eletronic and telecommunication)\b',
         'Mechanical': r'\b(Mechanical Engineering|Mechanical)\b',
-        'Data Science': r'\b(Data Science|Machine Learning|AI|Artificial Intelligence|Data Analysis)\b'
+        'Artificial Intelligence & Data Science': r'\b(Data Science|Machine Learning|AI|Artificial Intelligence|Data Analysis|AI&DS|AIDS)\b',
+        'Artificial Intelligence & Machine Learning':r'\b(Machine Learning|AI|Artificial Intelligence|ML)\b',
+        'IIOT': r'\b(IIOT|Industrial Internet of Things)\b',
+        'Computer Sciencen and design': r'\b(CSD|computer science and design)\b',
     }
     for dept, pattern in departments.items():
         if re.search(pattern, text, re.IGNORECASE):
@@ -55,12 +67,19 @@ def extract_department(text):
     return "Other"
 
 def extract_skills(text):
-    skills = set(['Python', 'Java', 'C++', 'JavaScript', 'HTML', 'CSS', 'SQL', 'R', 'Go', 
-                  'LESS', 'Matlab', 'Git', 'MySQL', 'AWS', 'React', 'Node.js', 'Spring', 
-                  'Express', 'TensorFlow', 'Keras', 'Scikit-learn', 'Pandas', 'NumPy',
-                  'Docker', 'Kubernetes', 'MongoDB', 'PostgreSQL', 'Flask', 'Django',
-                  'Vue.js', 'Angular', 'TypeScript', 'Redux', 'GraphQL', 'RESTful API',
-                  'CI/CD', 'Agile', 'Scrum', 'Jenkins', 'Terraform', 'Ansible'])
+    skills = set( ["Python", "Java", "C++", "JavaScript", "HTML", "CSS", "SQL", "React", "Angular", "Node.js",
+        "Ruby", "PHP", "Swift", "Kotlin", "C#", "R", "Go", "TypeScript", "Vue.js", "Django", "Flask",
+        "Spring", "Express.js", "Bootstrap", "Tailwind", "SASS", "LESS", "Perl", "Scala", "Rust",
+        "Matlab", "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "Pandas", "NumPy", "Matplotlib",
+        "Seaborn", "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Linux", "Windows Server", "Jenkins",
+        "Git", "SVN", "CI/CD", "Ansible", "Chef", "Puppet", "Terraform", "Shell Scripting",
+        "PowerShell", "Salesforce", "SAP", "Oracle", "MongoDB", "MySQL", "PostgreSQL", "Firebase",
+        "Redis", "Elasticsearch", "Kafka", "RabbitMQ", "Hadoop", "Spark", "Tableau", "Power BI",
+        "Excel", "Data Analysis", "Machine Learning", "Deep Learning", "Artificial Intelligence",
+        "Natural Language Processing", "Computer Vision", "Blockchain", "IoT", "Cybersecurity",
+        "Penetration Testing", "Network Security", "Cloud Security", "DevOps", "Agile", "Scrum",
+        "Project Management", "Leadership", "Communication", "Teamwork", "Problem Solving",
+        "Critical Thinking", "Time Management"])
     
     found_skills = set()
     for skill in skills:
@@ -150,7 +169,6 @@ def admin_function():
         st.subheader("Filtered Resume Data")
         st.dataframe(filtered_df)
 
-        # Interactive visualizations
         col1, col2 = st.columns(2)
 
         with col1:
@@ -165,7 +183,6 @@ def admin_function():
             fig_dept = px.pie(filtered_df, names='department', title='Departments')
             st.plotly_chart(fig_dept, use_container_width=True)
 
-        # Skills breakdown
         st.subheader("Skills Breakdown")
         skills_count = filtered_df['skills'].str.split(', ').explode().value_counts()
         fig_skills = px.bar(skills_count, x=skills_count.index, y=skills_count.values,
@@ -173,14 +190,12 @@ def admin_function():
                             labels={'index': 'Skills', 'value': 'Count'})
         st.plotly_chart(fig_skills, use_container_width=True)
 
-        # Education vs Experience scatter plot
         st.subheader("Education vs Experience")
         fig_edu_exp = px.scatter(filtered_df, x='experience', y='education', color='department',
                                  title='Education vs Experience',
                                  labels={'experience': 'Years of Experience', 'education': 'Education Level'})
         st.plotly_chart(fig_edu_exp, use_container_width=True)
 
-        # Candidate Details
         st.subheader("Candidate Details")
         for _, row in filtered_df.iterrows():
             with st.expander(f"{row['name']} - {row['department']}"):
@@ -188,7 +203,6 @@ def admin_function():
                 st.write(f"Education: {row['education']}")
                 st.write(f"Skills: {row['skills']}")
 
-        # Export functionality
         if st.button("Export Filtered Data to CSV"):
             csv = filtered_df.to_csv(index=False)
             st.download_button(
@@ -203,3 +217,5 @@ def admin_function():
 
 if __name__ == "__main__":
     admin_function()
+
+
