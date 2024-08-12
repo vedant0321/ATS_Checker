@@ -1,51 +1,48 @@
 import streamlit as st
+import os
 from dotenv import load_dotenv
-from streamlit_navigation_bar import st_navbar
+from streamlit_option_menu import option_menu
+
+# Load environment variables if using .env file
+load_dotenv()
+
 from home import home
 from student import student_function
 from admin import admin_function
 from contact import contact
 
-
-load_dotenv()
-
-# Main function to run the Streamlit app
 def main():
-    st.set_page_config(initial_sidebar_state="collapsed")
-    page = ["Home", "Student", "Admin", "Contact"]
-    styles = {
-        "nav": {
-            "background-color": "rgb(123, 209, 146)",
-            #  "margin-top": "1.5rem",         
-            },
-        "div": {
-            "max-width": "32rem",
-        },
-        "span": {
-            "border-radius": "0.5rem",
-            "color": "rgb(49, 51, 63)",
-            "margin": "0 0.125rem",
-            "padding": "0.4375rem 0.625rem",
-        },
-        "active": {
-            "background-color": "rgba(255, 255, 255, 0.25)",
-        },
-        "hover": {
-            "background-color": "rgba(255, 255, 255, 0.35)",
-        },
+    with st.sidebar:
+        # Test with a default icon first
+        selected = option_menu(
+            menu_title="AFIT",
+            options=["Home", "Student", "Admin", "Contact"],
+            icons=["house", "backpack", "file-person", "telephone"],  # Default icons
+            menu_icon="✨",
+            default_index=0
+        )
+        
+        # Apply custom icon if it works with default icon
+        # Uncomment the below line and comment out the default line if it works
+        # selected = option_menu(
+        #     menu_title="",
+        #     options=["Home", "Student", "Admin", "Contact"],
+        #     icons=["house", "backpack", "file-person", "telephone"],
+        #     menu_icon="C:\\Users\\om wanjari\\Desktop\\my\\logo.svg",
+        #     default_index=0
+        # )
+
+    page_functions = {
+        "Home": home,
+        "Student": student_function,
+        "Admin": admin_function,
+        "Contact": contact
     }
-    page = st_navbar(page, styles=styles)
-    
-    
-    
-    if page == "Home":
-        home()
-    elif page == "Student":
-        student_function()
-    elif page == "Admin":
-        admin_function()
-    elif page == "Contact":
-        contact()
+
+    if selected in page_functions:
+        page_functions[selected]()
+    else:
+        st.error("Invalid selection")  # Error handling for unexpected values
 
 if __name__ == "__main__":
     main()
