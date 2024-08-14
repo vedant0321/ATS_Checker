@@ -17,8 +17,17 @@ def process_single_pdf(uploaded_file):
     return text
 
 def extract_name(text):
-    match = re.search(r'^([A-Z][a-z]+ [A-Z][a-z]+)', text)
-    return match.group(1) if match else "Unknown"
+    lines = text.split('\n')
+    
+    for line in lines[:5]:  
+        line = re.sub(r'[^a-zA-Z\s]', '', line).strip()
+        words = line.split()
+        if len(words) >= 2:
+            return ' '.join(words[:2])
+        elif len(words) == 1 and len(words[0]) >= 2:
+            return words[0]
+    
+    return "Unknown"
 
 def extract_skills(text):
     skill_list = [
@@ -52,13 +61,28 @@ def extract_department(text):
     return "Other"
 
 def extract_experience(text):
-    match = re.search(r'(\d+)\+?\s*years?\s*(?:of)?\s*experience', text, re.IGNORECASE)
-    return int(match.group(1)) if match else 0
+        experience_patterns = [
+        r'(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)',
+        r'experience\s+of\s+(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)',
+        r'worked\s+for\s+(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)'
+    ]
+        for pattern in experience_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return float(match.group(1))
+        entry_level_keywords = ['entry level', 'fresh graduate', 'recent graduate', 'internship']
+        if any(keyword in text.lower() for keyword in entry_level_keywords):
+            return 0
+        return 0 
 
 def extract_education(text):
-    education_levels = ["PhD", "Master's", "Bachelor's", "Associate's"]
-    for level in education_levels:
-        if level.lower() in text.lower():
+    education_patterns = {
+        'PhD': r'\b(Ph\.?D\.?|Doctor of Philosophy)\b',
+        'Master': r'\b(Master\'?s?|M\.?S\.?|M\.?Eng\.?|MBA)\b',
+        'Bachelor': r'\b(Bachelor\'?s?|B\.?S\.?|B\.?E\.?|B\.?Tech\.?)\b'
+    }
+    for level, pattern in education_patterns.items():
+        if re.search(pattern, text, re.IGNORECASE):
             return level
     return "Unknown"
 
