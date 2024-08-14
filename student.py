@@ -57,7 +57,7 @@ def student_function():
                         prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 {job_description}Resume content:{pdf_content}"""
                     )
                     result_text = response.result
-                    st.markdown(result_text)
+                    st.write(result_text)
                     score, feedback = extract_score_and_feedback(result_text)
 
                     # Create and display the gauge chart

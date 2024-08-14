@@ -34,7 +34,7 @@ def extract_skills(text):
         "Natural Language Processing", "Computer Vision", "Blockchain", "IoT", "Cybersecurity",
         "Penetration Testing", "Network Security", "Cloud Security", "DevOps", "Agile", "Scrum",
         "Project Management", "Leadership", "Communication", "Teamwork", "Problem Solving",
-        "Critical Thinking", "Time Management"
+        "Critical Thinking", "Time Management","Flutter"
     ]
     found_skills = [skill for skill in skill_list if skill.lower() in text.lower()]
     return ", ".join(found_skills)

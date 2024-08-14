@@ -5,24 +5,18 @@ import re
 from PyPDF2 import PdfReader
 
 
-#Name Extraction Function
 def extract_name(text):
-    """A simplified version to just see what names are being extracted."""
     lines = text.split('\n')
     
-    for line in lines:
-        # Basic cleaning
+    for line in lines[:5]:  
         line = re.sub(r'[^a-zA-Z\s]', '', line).strip()
-        
-        # Just split and check each word
         words = line.split()
-        if len(words) > 1:  # Assuming names have at least two parts
-            # Assuming the name is in the first couple of lines
+        if len(words) >= 2:
             return ' '.join(words[:2])
+        elif len(words) == 1 and len(words[0]) >= 2:
+            return words[0]
     
     return "Unknown"
-
-# Extracting Experience, Education, Department and Skills
 
 def extract_experience(text):
     experience_patterns = [
