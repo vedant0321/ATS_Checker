@@ -33,6 +33,7 @@ def extract_experience(text):
         return 0
     return 0  # Default to 0 if no experience found
 
+
 def extract_education(text):
     education_patterns = {
         'PhD': r'\b(Ph\.?D\.?|Doctor of Philosophy)\b',

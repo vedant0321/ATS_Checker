@@ -3,7 +3,7 @@ import google.generativeai as genai
 from utils import process_single_pdf, extract_score_and_feedback, create_gauge_chart
 
 # Configure generative AI with API key
-genai.configure(api_key='AIzaSyAdN9CPrHC7AH7yiI8Yh_8fGo8Knl97AcM')
+genai.configure(api_key='AIzaSyAxXbYg_t4nevMViIaEmCu55CGELs2UpO0')
 
 def student_function():
     st.title("Student Resume Analysis")
@@ -51,7 +51,6 @@ def student_function():
                 st.warning("Please enter a job description with at least 50 words.")
 
         if st.button("Calculate Total ATS"):
-            if jd_word_count >= 50:
                 with st.spinner("Calculating Grade..."):
                     response = genai.generate_text(
                         prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 {job_description}Resume content:{pdf_content}"""
@@ -65,8 +64,7 @@ def student_function():
                     st.plotly_chart(fig_gauge)
 
                     st.write(f"Score: {score}%")
-            else:
-                st.warning("Please enter a job description with at least 50 words.")
+
     else:
         st.warning("Please upload a PDF resume to proceed.")
 
