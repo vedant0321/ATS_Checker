@@ -1,5 +1,5 @@
 import pandas as pd
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, load_metric
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, Trainer, TrainingArguments
 from sklearn.model_selection import train_test_split
 import nltk
@@ -75,15 +75,35 @@ print("Fine-tuning complete. Model and tokenizer saved.")
 eval_results = trainer.evaluate()
 print("Evaluation Results:", eval_results)
 
+# Initialize ROUGE metric
+rouge = load_metric("rouge")
+
 # BLEU score calculation
 smoothing_function = SmoothingFunction().method4
-references = [eval_texts.iloc[0].split()]  # Tokenized reference (ground truth) sentence
-input_text = eval_texts.iloc[0]  # Example sentence from the eval set
-inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-outputs = model.generate(**inputs, max_new_tokens=512)
-generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-hypothesis = generated_text.split()  # Tokenized model-generated sentence
+# Function to tokenize text for BLEU and ROUGE
+def tokenize_text(text):
+    return tokenizer.convert_ids_to_tokens(tokenizer.encode(text, max_length=512, truncation=True))
 
-bleu_score = sentence_bleu(references, hypothesis, smoothing_function=smoothing_function)
-print(f"BLEU score: {bleu_score:.4f}")
+# Ensure you have a valid eval_texts sample
+if not eval_texts.empty:
+    reference_text = eval_texts.iloc[0]
+    reference = reference_text.split()
+    
+    input_text = reference_text
+    inputs = tokenizer(input_text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+    outputs = model.generate(**inputs, max_length=512)
+    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    hypothesis = generated_text.split()
+    
+    # Compute BLEU score
+    bleu_score = sentence_bleu([reference], hypothesis, smoothing_function=smoothing_function)
+    print(f"BLEU score: {bleu_score:.4f}")
+
+    # Compute ROUGE score
+    rouge_results = rouge.compute(predictions=[generated_text], references=[reference_text])
+    print("ROUGE scores:", rouge_results)
+
+else:
+    print("Evaluation set is empty; cannot compute BLEU or ROUGE scores.")

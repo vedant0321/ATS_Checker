@@ -102,7 +102,6 @@ def create_dataset_from_resumes(file_paths, output_json):
     with open(output_json, 'w') as f:
         json.dump(data, f, indent=4)
 
-# Example usage
 import os
 
 # Directory containing the resume files
