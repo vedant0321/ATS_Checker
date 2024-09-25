@@ -30,7 +30,7 @@ def extract_experience(text):
     entry_level_keywords = ['entry level', 'fresh graduate', 'recent graduate', 'internship']
     if any(keyword in text.lower() for keyword in entry_level_keywords):
         return 0
-    return None  # Return None instead of 0 if no experience found
+    return None
 
 def extract_education(text):
     education_patterns = {
@@ -47,10 +47,10 @@ def extract_department(text):
     departments = {
         'Computer Science & Technology': r'\b(Computer Science|C.Tech|CT)\b',
         'Information Technology': r'\b(Information Technology|IT)\b',
-        'Electronics': r'\b(Electronics|ECE|Electrical Engineering|Eletronic and telecommunication)\b',
+        'Electronics': r'\b(Electronics|ECE|Electrical Engineering|Electronic and telecommunication)\b',
         'Mechanical': r'\b(Mechanical Engineering|Mechanical)\b',
         'Artificial Intelligence & Data Science': r'\b(Data Science|Machine Learning|AI|Artificial Intelligence|Data Analysis|AI&DS|AIDS)\b',
-        'Artificial Intelligence & Machine Learning':r'\b(Machine Learning|AI|Artificial Intelligence|ML)\b',
+        'Artificial Intelligence & Machine Learning': r'\b(Machine Learning|AI|Artificial Intelligence|ML)\b',
         'IIOT': r'\b(IIOT|Industrial Internet of Things)\b',
         'Computer Science and Design': r'\b(CSD|computer science and design)\b',
     }
@@ -88,9 +88,7 @@ def extract_cgpa(text):
     return None
 
 def extract_marks(text):
-    # Regex pattern for 10th marks
     marks_pattern_10th = r'(?:10th|X|Class X|CBSE).*?Percentage:\s*(\d{1,3}(?:\.\d+)?)\s*%'
-    # Regex pattern for 12th marks
     marks_pattern_12th = r'(?:12th|XII|HSC).*?Percentage:\s*(\d{1,3}(?:\.\d+)?)\s*%'
     
     match_10th = re.search(marks_pattern_10th, text, re.IGNORECASE)
@@ -133,7 +131,6 @@ def process_multiple_pdfs(files):
             })
     return processed_data
 
-# Main Streamlit app
 def admin_function():
     st.title("Interactive Resume Analyzer Dashboard")
 
@@ -149,17 +146,14 @@ def admin_function():
             return
 
         # Sidebar filters
-        st.sidebar.title("Filters and Visualizations")
-        st.sidebar.header("Filters")
-        
-        # CGPA filter
-        cgpa_min, cgpa_max = st.sidebar.slider("CGPA Range", 0.0, 10.0, (0.0, 10.0), 0.1)
-        
-        # 10th Marks filter
-        marks_10th_min, marks_10th_max = st.sidebar.slider("10th Marks Range (%)", 0, 100, (0, 100), 1)
-        
-        # 12th Marks filter
-        marks_12th_min, marks_12th_max = st.sidebar.slider("12th Marks Range (%)", 0, 100, (0, 100), 1)
+        # CGPA filter using a single input box
+        cgpa_min = st.sidebar.number_input("Minimum CGPA", min_value=0.0, max_value=10.0, value=0.0, step=0.1)
+
+        # 10th Marks filter using a single input box
+        marks_10th_min = st.sidebar.number_input("Minimum 10th Marks (%)", min_value=0, max_value=100, value=0)
+
+        # 12th Marks filter using a single input box
+        marks_12th_min = st.sidebar.number_input("Minimum 12th Marks (%)", min_value=0, max_value=100, value=0)
 
         # Skills filter
         all_skills = set(','.join(df['skills'].dropna()).replace(', ', ',').split(','))
@@ -174,9 +168,9 @@ def admin_function():
         selected_education = st.sidebar.multiselect("Select Education Levels", options=education_levels, default=education_levels)
 
         # Apply filters
-        mask = (df['cgpa'].between(cgpa_min, cgpa_max, inclusive='both')) & \
-               (df['marks_10th'].between(marks_10th_min, marks_10th_max, inclusive='both')) & \
-               (df['marks_12th'].between(marks_12th_min, marks_12th_max, inclusive='both')) & \
+        mask = (df['cgpa'] >= cgpa_min) & \
+               (df['marks_10th'] >= marks_10th_min) & \
+               (df['marks_12th'] >= marks_12th_min) & \
                (df['department'].isin(selected_departments)) & \
                (df['education'].isin(selected_education))
         
