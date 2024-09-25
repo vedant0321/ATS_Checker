@@ -25,7 +25,7 @@ def student_function():
 
         jd_word_count = len(job_description.split())
 
-        if st.button("ATS Check based on Job Description"):
+        if st.button("Profie Match Based on Job Description"):
             if jd_word_count >= 50:
                 with st.spinner("ATS Checking..."):
                     response = generate_ai_response(
@@ -49,7 +49,7 @@ def student_function():
             if jd_word_count >= 50:
                 with st.spinner("Suggesting improvements for the resume..."):
                     response = generate_ai_response(
-                        prompt=f"""Suggest improvements for this resume based on the job description to increase the job profile:\n{job_description}\nResume content:\n{pdf_content}"""
+                        prompt=f"""Suggest improvements for this resume based on the job description to increase the job profile and the ats of the resume for the specific comapay and suggets course that can be helful for boosting the job value:\n{job_description}\nResume content:\n{pdf_content}"""
                     )
                     st.markdown(response)
             else:
@@ -58,7 +58,7 @@ def student_function():
         if st.button("Calculate Total ATS"):
             with st.spinner("Calculating Grade..."):
                 response = generate_ai_response(
-                    prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 {job_description}Resume content:{pdf_content}"""
+                    prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 and check some parameters which are present or not such as education,experience,skill,projects,certification and if present increase the score else decrease{job_description}Resume content:{pdf_content}"""
                 )
                 st.write(response)
                 score, feedback = extract_score_and_feedback(response)
