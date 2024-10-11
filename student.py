@@ -75,8 +75,6 @@ def student_function():
                 st.write(response)
                 
                 score, feedback = extract_score_and_feedback(response)
-                
-                # Create and display the circular progress indicator for total ATS
                 create_progress_indicator(score, "total_ats")
 
     else:
