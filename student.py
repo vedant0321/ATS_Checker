@@ -25,7 +25,7 @@ def student_function():
 
         jd_word_count = len(job_description.split())
 
-        if st.button("Profie Match Based on Job Description"):
+        if st.button("Profile Match Based on Job Description"):
             if jd_word_count >= 50:
                 with st.spinner("ATS Checking..."):
                     response = generate_ai_response(
