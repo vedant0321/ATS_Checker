@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
-from utils import process_single_pdf, extract_score_and_feedback, create_gauge_chart
+from st_circular_progress import CircularProgress
+from utils import process_single_pdf, extract_score_and_feedback
 
 # Configure generative AI with API key
 genai.configure(api_key='AIzaSyAxXbYg_t4nevMViIaEmCu55CGELs2UpO0')
@@ -15,14 +16,11 @@ def generate_ai_response(prompt):
 
 def student_function():
     st.title("Student Resume Analysis")
-
     uploaded_file = st.file_uploader("Upload your resume (PDF only)", type=['pdf', 'docx'])
-
+    
     if uploaded_file:
         pdf_content = process_single_pdf(uploaded_file)
-
         job_description = st.text_area("Enter the job description")
-
         jd_word_count = len(job_description.split())
 
         if st.button("Profile Match Based on Job Description"):
@@ -31,7 +29,7 @@ def student_function():
                     response = generate_ai_response(
                         prompt=f"""You are a skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality, your task is to evaluate the resume against the provided job description. Give me the percentage of match if the resume matches the job description. First the output should come as percentage and then keywords missing and last final thoughts.{job_description}{pdf_content}"""
                     )
-                    st.markdown(response)
+                st.markdown(response)
             else:
                 st.warning("Please enter a job description with at least 50 words.")
 
@@ -41,7 +39,7 @@ def student_function():
                     response = generate_ai_response(
                         prompt=f"""Identify keywords missing in the resume based on the job description given in the textbox and tell which skills are missing in the resume in the list form:\n{job_description}\nResume content:\n{pdf_content}"""
                     )
-                    st.markdown(response)
+                st.markdown(response)
             else:
                 st.warning("Please enter a job description with at least 50 words.")
 
@@ -51,7 +49,7 @@ def student_function():
                     response = generate_ai_response(
                         prompt=f"""Suggest improvements for this resume based on the job description to increase the job profile and the ats of the resume for the specific comapay and suggets course that can be helful for boosting the job value:\n{job_description}\nResume content:\n{pdf_content}"""
                     )
-                    st.markdown(response)
+                st.markdown(response)
             else:
                 st.warning("Please enter a job description with at least 50 words.")
 
@@ -61,14 +59,20 @@ def student_function():
                     prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 and check some parameters which are present or not such as education,experience,skill,projects,certification and if present increase the score else decrease{job_description}Resume content:{pdf_content}"""
                 )
                 st.write(response)
+                
                 score, feedback = extract_score_and_feedback(response)
-
-                # Create and display the gauge chart
-                fig_gauge = create_gauge_chart(score)
-                st.plotly_chart(fig_gauge)
-
-                st.write(f"Score: {score}%")
-
+                
+                # Create and display the circular progress indicator
+                color = "red" if score < 70 else "yellow" if score < 85 else "green"
+                CircularProgress(
+                    label="ATS Score",
+                    value=score,
+                    key="ats_score",
+                    size="large",
+                    color=color
+                ).st_circular_progress()
+                
+                # st.write(f"Score: {score}%")
     else:
         st.warning("Please upload a PDF resume to proceed.")
 
