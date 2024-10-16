@@ -6,6 +6,41 @@ from utils import process_single_pdf, extract_score_and_feedback
 # Configure generative AI with API key
 genai.configure(api_key='AIzaSyAxXbYg_t4nevMViIaEmCu55CGELs2UpO0')
 
+# Custom CSS for styling the interface
+STYLES = """
+<style>
+[data-testid="stAppViewContainer"] {
+  background: linear-gradient(135deg, #000000 30%, #2e2e70 100%);
+}
+[data-testid="stHeader"] {
+  background-color: rgba(0, 0, 0, 0) !important;
+}
+.student-heading {
+    font-size: 48px;
+    font-weight: bold;
+    margin-bottom: 30px;
+    color: white;
+    text-align: center;
+}
+.stButton > button {
+    height: 45px;
+    width: 100%;
+    background-color: #6A5ACD;
+    color: white;
+    border-radius: 10px;
+    font-size: 18px;
+    margin: 10px 0;
+}
+.file-uploader, .text-area, .result-box {
+    background-color: #1a1a40;
+    padding: 20px;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+}
+</style>
+"""
+
 def generate_ai_response(prompt):
     try:
         model = genai.GenerativeModel('gemini-pro')
@@ -23,62 +58,88 @@ def create_progress_indicator(score, key_prefix):
         size="large",
         color=color
     ).st_circular_progress()
-    st.write(f"Score: {score}%")
 
 def student_function():
-    st.title("Student Resume Analysis")
-    uploaded_file = st.file_uploader("Upload your resume (PDF only)", type=['pdf', 'docx'])
-    
+    st.markdown(STYLES, unsafe_allow_html=True)
+    st.markdown("<h1 class='student-heading'>Student Resume Analysis</h1>", unsafe_allow_html=True)
+
+    if 'jd_submitted' not in st.session_state:
+        st.session_state.jd_submitted = False
+    if 'profile_match_done' not in st.session_state:
+        st.session_state.profile_match_done = False
+    if 'missing_skills_done' not in st.session_state:
+        st.session_state.missing_skills_done = False
+    if 'improvise_done' not in st.session_state:
+        st.session_state.improvise_done = False
+
+    uploaded_file = st.file_uploader("Upload your resume (PDF or DOCX)", type=['pdf', 'docx'], key="resume_upload")
+
     if uploaded_file:
         pdf_content = process_single_pdf(uploaded_file)
-        job_description = st.text_area("Enter the job description")
-        jd_word_count = len(job_description.split())
+        job_description = st.text_area("Enter the job description", key="job_desc")
 
-        if st.button("Profile Match Based on Job Description"):
-            if jd_word_count >= 50:
-                with st.spinner("ATS Checking..."):
-                    response = generate_ai_response(
-                        prompt=f"""You are a skilled ATS (Applicant Tracking System) scanner with a deep understanding of data science and ATS functionality, your task is to evaluate the resume against the provided job description. Give me the percentage of match if the resume matches the job description. First the output should come as percentage and then keywords missing and last final thoughts.{job_description}{pdf_content}"""
-                    )
-                    score, feedback = extract_score_and_feedback(response)
-                    create_progress_indicator(score, "profile_match")
-                    # Display the detailed feedback
-                    # st.markdown(response)
+        if st.button("Submit JD", key="submit_jd_btn"):
+            if len(job_description.split()) < 50:
+                st.warning("Please enter at least 50 words in the job description.")
             else:
-                st.warning("Please enter a job description with at least 50 words.")
+                st.session_state.jd_submitted = True
+                st.success("Job description submitted successfully.")
 
-        if st.button("Find Missing Keywords"):
-            if jd_word_count >= 50:
-                with st.spinner("Finding missing keywords..."):
-                    response = generate_ai_response(
-                        prompt=f"""Identify keywords missing in the resume based on the job description given in the textbox and tell which skills are missing in the resume in the list form:\n{job_description}\nResume content:\n{pdf_content}"""
-                    )
-                    st.markdown(response)
-            else:
-                st.warning("Please enter a job description with at least 50 words.")
+        if st.session_state.jd_submitted:
+            button_col1, button_col2 = st.columns(2)
 
-        if st.button("Improvise Resume"):
-            if jd_word_count >= 50:
-                with st.spinner("Suggesting improvements for the resume..."):
-                    response = generate_ai_response(
-                        prompt=f"""Suggest improvements for this resume based on the job description to increase the job profile and the ats of the resume for the specific comapay and suggets course that can be helful for boosting the job value:\n{job_description}\nResume content:\n{pdf_content}"""
-                    )
-                    st.markdown(response)
-            else:
-                st.warning("Please enter a job description with at least 50 words.")
+            with button_col1:
+                if st.button("Profile Match Based on Job Description", key="profile_match_btn"):
+                    with st.spinner("Performing profile match..."):
+                        response = generate_ai_response(
+                            f"""Evaluate the resume against the job description. 
+                            Provide the match percentage, missing keywords, and feedback. 
+                            Job description: {job_description} 
+                            Resume content: {pdf_content}"""
+                        )
+                        score, feedback = extract_score_and_feedback(response)
+                        st.write(f"Profile Match Score: {score}/100")
+                        create_progress_indicator(score, "profile_match")
+                        st.session_state.profile_match_done = True
 
-        if st.button("Calculate Total ATS"):
-            with st.spinner("Calculating Grade..."):
-                response = generate_ai_response(
-                    prompt=f"""You are a skilled ATS checker. Analyze the resume and give the percentage on basis from 1 to 100 and check some parameters which are present or not such as education,experience,skill,projects,certification and if present increase the score else decrease{job_description}Resume content:{pdf_content}"""
-                )
-                st.write(response)
-                
-                score, feedback = extract_score_and_feedback(response)
-                create_progress_indicator(score, "total_ats")
+            with button_col2:
+                if st.button("Calculate Total ATS Score", key="calculate_ats_btn"):
+                    with st.spinner("Calculating ATS score..."):
+                        response = generate_ai_response(
+                            f"""Analyze the resume for an overall ATS score (1 to 100). 
+                            Consider education, skills, experience, and certifications. 
+                            Job description: {job_description} 
+                            Resume content: {pdf_content}"""
+                        )
+                        score, feedback = extract_score_and_feedback(response)
+                        st.write(f"Total ATS Score: {score}/100")
+                        create_progress_indicator(score, "total_ats")
+
+            if st.session_state.profile_match_done and not st.session_state.missing_skills_done:
+                if st.button("Find Missing Keywords", key="find_keywords_btn"):
+                    with st.spinner("Finding missing skills..."):
+                        response = generate_ai_response(
+                            f"""Identify missing keywords and skills in the resume based on the provided job description. 
+                            Job description: {job_description} 
+                            Resume content: {pdf_content}"""
+                        )
+                        st.markdown(f"<div class='result-box'>{response}</div>", unsafe_allow_html=True)
+                        st.session_state.missing_skills_done = True
+
+            if st.session_state.missing_skills_done and not st.session_state.improvise_done:
+                if st.button("Improvise Resume", key="improvise_resume_btn"):
+                    with st.spinner("Generating resume improvement suggestions..."):
+                        response = generate_ai_response(
+                            f"""Suggest ways to improve the resume. Provide suggestions on relevant courses 
+                            and strategies to enhance the profile and ATS score. 
+                            Job description: {job_description} 
+                            Resume content: {pdf_content}"""
+                        )
+                        st.markdown(f"<div class='result-box'>{response}</div>", unsafe_allow_html=True)
+                        st.session_state.improvise_done = True
 
     else:
-        st.warning("Please upload a PDF resume to proceed.")
+        st.warning("Please upload your resume to proceed.")
 
 if __name__ == "__main__":
     student_function()
