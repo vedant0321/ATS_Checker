@@ -128,6 +128,9 @@ def extract_marks(text):
 
     return marks_10th, marks_12th
 
+
+
+
 def process_single_pdf(file):
     try:
         if file.type == "application/pdf":
