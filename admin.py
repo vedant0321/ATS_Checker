@@ -1,65 +1,85 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import re
 from PyPDF2 import PdfReader
+import spacy
+from spacy.matcher import Matcher
+import re
+
+# Load spaCy model
+nlp = spacy.load("en_core_web_sm")
 
 st.set_page_config(page_title="Resume Analyzer Dashboard", layout="wide")
 
-def extract_name(text):
-    lines = text.split('\n')
-    for line in lines[:5]:  
-        line = re.sub(r'[^a-zA-Z\s]', '', line).strip()
-        words = line.split()
-        if len(words) >= 2:
-            return ' '.join(words[:2])
-        elif len(words) == 1 and len(words[0]) >= 2:
-            return words[0]
+def extract_name(doc):
+    # Extract the first line and split it into words
+    first_line = doc.text.strip().split('\n')[0]
+    words = first_line.split()
+    
+    # Check if the name is 2 to 30 characters long
+    if 2 <= len(' '.join(words)) <= 30:
+        return ' '.join(words)
+    
+    # If not, use spaCy's named entity recognition as a fallback
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            return ent.text
+    
     return "Unknown"
 
-def extract_experience(text):
+def extract_experience(doc):
     experience_patterns = [
-        r'(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)(?:\s+of)?\s+(?:experience|exp)',
-        r'experience\s+of\s+(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)',
-        r'worked\s+for\s+(\d+(?:\.\d+)?)(?:\+)?\s*(?:years?|yrs?)'
+        [{"LOWER": "experience"}, {"LOWER": "of"}, {"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}],
+        [{"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}, {"LOWER": "experience"}],
+        [{"LOWER": "worked"}, {"LOWER": "for"}, {"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}],
+        [{"LOWER": "internship"}, {"LOWER": {"IN": ["data", "science", "visualization"]}}]
     ]
+    matcher = Matcher(nlp.vocab)
     for pattern in experience_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return float(match.group(1))
+        matcher.add("EXPERIENCE", [pattern])
+    matches = matcher(doc)
+    for _, start, end in matches:
+        span = doc[start:end]
+        for token in span:
+            if token.like_num:
+                return float(token.text)
+    # Handle entry-level cases
     entry_level_keywords = ['entry level', 'fresh graduate', 'recent graduate', 'internship']
-    if any(keyword in text.lower() for keyword in entry_level_keywords):
+    if any(keyword in doc.text.lower() for keyword in entry_level_keywords):
         return 0
     return None
 
-def extract_education(text):
+def extract_education(doc):
     education_patterns = {
-        'PhD': r'\b(Ph\.?D\.?|Doctor of Philosophy)\b',
-        'Master': r'\b(Master\'?s?|M\.?S\.?|M\.?Eng\.?|MBA)\b',
-        'Bachelor': r'\b(Bachelor\'?s?|B\.?S\.?|B\.?E\.?|B\.?Tech\.?)\b'
+        'PhD': [{"LOWER": {"IN": ["phd", "ph.d.", "doctor", "doctorate"]}}, {"LOWER": "of", "OP": "?"}, {"LOWER": "philosophy", "OP": "?"}],
+        'Master': [{"LOWER": {"IN": ["master", "masters", "m.s.", "m.eng.", "mba"]}}],
+        'Bachelor': [{"LOWER": {"IN": ["bachelor", "bachelors", "b.s.", "b.e.", "b.tech", "btech", "bachelor of technology","b. tech"]}}]
     }
+    matcher = Matcher(nlp.vocab)
     for level, pattern in education_patterns.items():
-        if re.search(pattern, text, re.IGNORECASE):
-            return level
+        matcher.add(level, [pattern])
+    matches = matcher(doc)
+    for match_id, start, end in matches:
+        return nlp.vocab.strings[match_id]
     return "Unknown"
 
-def extract_department(text):
+def extract_department(doc):
     departments = {
-        'Computer Science & Technology': r'\b(Computer Science|C\.Tech|CT)\b',
-        'Information Technology': r'\b(Information Technology|IT)\b',
-        'Electronics': r'\b(Electronics|ECE|Electrical Engineering|Electronic and telecommunication)\b',
-        'Mechanical': r'\b(Mechanical Engineering|Mechanical)\b',
-        'Artificial Intelligence & Data Science': r'\b(Data Science|Machine Learning|AI|Artificial Intelligence|Data Analysis|AI&DS|AIDS)\b',
-        'Artificial Intelligence & Machine Learning': r'\b(Machine Learning|AI|Artificial Intelligence|ML)\b',
-        'IIOT': r'\b(IIOT|Industrial Internet of Things)\b',
-        'Computer Science and Design': r'\b(CSD|computer science and design)\b',
+        'Computer Science & Technology': ["computer science", "computer technology"],
+        'Information Technology': ["information technology"],
+        'Electronics': ["electronics", "electrical engineering", "electronic and telecommunication"],
+        'Mechanical': ["mechanical engineering"],
+        'Artificial Intelligence & Data Science': ["data science", "machine learning", "artificial intelligence", "data analysis"],
+        'Artificial Intelligence & Machine Learning': ["machine learning", "artificial intelligence"],
+        'IIOT': ["industrial internet of things"],
+        'Computer Science and Design': ["computer science and design"]
     }
-    for dept, pattern in departments.items():
-        if re.search(pattern, text, re.IGNORECASE):
+    for dept, keywords in departments.items():
+        if any(keyword in doc.text.lower() for keyword in keywords):
             return dept
     return "Other"
 
-def extract_skills(text):
+def extract_skills(doc):
     skills = set(["Python", "Java", "C++", "JavaScript", "HTML", "CSS", "SQL", "React", "Angular", "Node.js",
         "Ruby", "PHP", "Swift", "Kotlin", "C#", "R", "Go", "TypeScript", "Vue.js", "Django", "Flask",
         "Spring", "Express.js", "Bootstrap", "Tailwind", "SASS", "LESS", "Perl", "Scala", "Rust",
@@ -73,63 +93,57 @@ def extract_skills(text):
         "Penetration Testing", "Network Security", "Cloud Security", "DevOps", "Agile", "Scrum",
         "Project Management", "Leadership", "Communication", "Teamwork", "Problem Solving",
         "Critical Thinking", "Time Management"])
-    
+
     found_skills = set()
-    for skill in skills:
-        if re.search(r'\b' + re.escape(skill) + r'\b', text, re.IGNORECASE):
-            found_skills.add(skill)
+    for token in doc:
+        if token.text in skills:
+            found_skills.add(token.text)
     return ', '.join(sorted(found_skills))
 
-def extract_cgpa(text):
-    cgpa_patterns = [
-        r'\b(?:CGPA|GPA|Grade Point Average)\s*[:=]?\s*(\d+(?:\.\d+)?)\s*(?:/\s*(?:4|10))?',
-        r'(?:obtained|secured|with|having|current|cumulative)?\s*(?:CGPA|GPA)\s*(?:of|:)?\s*(\d+(?:\.\d+)?)\s*(?:/\s*(?:4|10))?',
-        r'(?:CGPA|GPA)\s*(?:-|:|\s)\s*(\d+(?:\.\d+)?)\s*(?:/\s*(?:4|10))?',
-        r'(\d+(?:\.\d+)?)\s*/\s*(?:4|10)\s*(?:CGPA|GPA)',
-    ]
-    
-    for pattern in cgpa_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            try:
-                cgpa = float(match.group(1))
-                # Normalize CGPA to 10-point scale
-                if cgpa <= 4.0:
-                    cgpa *= 2.5
-                if 0 <= cgpa <= 10:
-                    return round(cgpa, 2)
-            except ValueError:
-                continue
+def extract_cgpa(doc):
+    cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|percent):\s*(\d+(?:\.\d+)?)\b'
+    match = re.search(cgpa_pattern, doc.text, re.IGNORECASE)
+    if match:
+        cgpa = float(match.group(1))
+        if 0 <= cgpa <= 10:
+            return round(cgpa, 2)
     return None
 
 def extract_marks(text):
-    marks_patterns = [
-        r'\b(?:10th|X|SSC|Matriculation|12th|XII|HSC|Intermediate)\s*(?:standard|class)?(?:\s*-\s*|\s*:\s*|\s*percentage\s*:?\s*|\s*marks\s*:?\s*|\s*aggregate\s*:?\s*)(\d{2,3}(?:\.\d{1,2})?)\s*%?',
-        r'(?:10th|X|SSC|Matriculation|12th|XII|HSC|Intermediate)\s*(?:standard|class)?.*?(\d{2,3}(?:\.\d{1,2})?)\s*%',
-        r'(\d{2,3}(?:\.\d{1,2})?)\s*%\s*in\s*(?:10th|X|SSC|Matriculation|12th|XII|HSC|Intermediate)',
-        r'(?:percentage|marks|aggregate)\s*in\s*(?:10th|X|SSC|Matriculation|12th|XII|HSC|Intermediate)\s*(?:-|:|\s)\s*(\d{2,3}(?:\.\d{1,2})?)\s*%?',
-    ]
-    
-    marks_10th = None
-    marks_12th = None
-    
-    for pattern in marks_patterns:
-        matches = re.finditer(pattern, text, re.IGNORECASE)
-        for match in matches:
+    # Process the text using spaCy
+    doc = nlp(text)
+    marks = {'ssc': None, 'hsc': None}
+    current_context = None
+
+    # Iterate over tokens and identify percentages & contexts
+    for token in doc:
+        token_text = token.text.lower()
+
+        # Update context for SSC or HSC
+        if token_text in ['ssc', 'class x', 'cbse']:
+            current_context = 'ssc'
+        elif token_text in ['hsc', 'class xii']:
+            current_context = 'hsc'
+
+        if not token.like_num:
+            continue
+
+        # Check for percentages (like '85%' or 'Percentage 85')
+        if token.like_num:
             try:
-                marks = float(match.group(1))
-                if 0 <= marks <= 100:
-                    if '10' in match.group(0).lower() or 'x' in match.group(0).lower() or 'ssc' in match.group(0).lower() or 'matriculation' in match.group(0).lower():
-                        marks_10th = marks
-                    elif '12' in match.group(0).lower() or 'xii' in match.group(0).lower() or 'hsc' in match.group(0).lower() or 'intermediate' in match.group(0).lower():
-                        marks_12th = marks
-            except ValueError:
+                percentage = float(token.text)  # Attempt conversion
+            except:
                 continue
+            
+            # Validate percentages in correct ranges and match contexts
+            next_token = token.nbor() if token.i + 1 < len(doc) else None
+            if (next_token and next_token.text == '%') or (0 <= percentage <= 100):
+                if current_context:
+                    marks[current_context] = percentage
+                    current_context = None
 
-    return marks_10th, marks_12th
-
-
-
+    return marks['ssc'], marks['hsc']
+    return marks['ssc'], marks['hsc']
 
 def process_single_pdf(file):
     try:
@@ -140,7 +154,23 @@ def process_single_pdf(file):
                 text += page.extract_text()
         else:
             text = file.getvalue().decode("utf-8")
-        return text
+        
+        doc = nlp(text)
+        
+        name = extract_name(doc)
+        cgpa = extract_cgpa(doc)
+        marks_10th, marks_12th = extract_marks(doc)
+        
+        return {
+            'name': name,
+            'skills': extract_skills(doc),
+            'department': extract_department(doc),
+            'experience': extract_experience(doc),
+            'education': extract_education(doc),
+            'cgpa': cgpa,
+            'marks_10th': marks_10th,
+            'marks_12th': marks_12th
+        }
     except Exception as e:
         st.error(f"Error processing file {file.name}: {str(e)}")
         return None
@@ -148,21 +178,9 @@ def process_single_pdf(file):
 def process_multiple_pdfs(files):
     processed_data = []
     for file in files:
-        content = process_single_pdf(file)
-        if content:
-            marks_10th, marks_12th = extract_marks(content)
-            cgpa = extract_cgpa(content)
-            
-            processed_data.append({
-                'name': extract_name(content),
-                'skills': extract_skills(content),
-                'department': extract_department(content),
-                'experience': extract_experience(content),
-                'education': extract_education(content),
-                'cgpa': cgpa if cgpa is not None else None,
-                'marks_10th': marks_10th if marks_10th is not None else None,
-                'marks_12th': marks_12th if marks_12th is not None else None
-            })
+        result = process_single_pdf(file)
+        if result:
+            processed_data.append(result)
     return processed_data
 
 def admin_function():
@@ -264,6 +282,7 @@ def admin_function():
                     st.plotly_chart(fig_10th, use_container_width=True)
                 else:
                     st.write("No 10th marks data available")
+
             with col3:
                 st.subheader("12th Marks Distribution")
                 valid_12th = filtered_df['marks_12th'].dropna()
@@ -296,7 +315,7 @@ def admin_function():
                                     labels={'index': 'Skills', 'value': 'Count'})
                 fig_skills.update_layout(xaxis_tickangle=-45)
                 st.plotly_chart(fig_skills, use_container_width=True)
-
+                
             st.subheader("Candidate Details")
             for _, row in filtered_df.iterrows():
                 with st.expander(f"{row['name']} - {row['department']}"):
@@ -326,3 +345,4 @@ def admin_function():
 
 if __name__ == "__main__":
     admin_function()
+
