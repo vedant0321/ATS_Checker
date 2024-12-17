@@ -1,16 +1,18 @@
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from streamlit_option_menu import option_menu
-
-# Load environment variables if using .env file
-load_dotenv()
-
+from login import login_page
+from signup import signup_page
+from account import account_page
 from home import home
 from student import student_function
 from admin import admin_function
 from contact import contact
 import base64
+from styles import hide_sidebar, show_sidebar, STYLES
+
+# Load environment variables
+load_dotenv()
 
 def get_svg_base64(svg_path):
     with open(svg_path, "rb") as svg_file:
@@ -18,15 +20,29 @@ def get_svg_base64(svg_path):
     return base64.b64encode(svg_data).decode()
 
 def main():
-    # Initialize session state for page selection
+    # Initialize session state
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "Home"
+    if 'user' not in st.session_state:
+        st.session_state.user = None
+
+
+    # Authentication page routing
+    if st.session_state.selected_page in ["Login", "Signup"]:
+        hide_sidebar()
+        st.markdown(STYLES["auth_page_style"], unsafe_allow_html=True)
+        if st.session_state.selected_page == "Login":
+            login_page()
+        else:
+            signup_page()
+        return
+
+    # Show sidebar for other pages
+    show_sidebar()
 
     with st.sidebar:
-        # Convert SVG to base64
+        # Sidebar content like logo, menu, etc.
         svg_base64 = get_svg_base64("logo.svg")
-        
-        # Display SVG using base64
         st.markdown(
             f"""
             <div style="text-align: center;">
@@ -38,26 +54,34 @@ def main():
 
         selected = option_menu(
             menu_title="",
-            options=["Home", "Student", "Admin", "Contact"],
-            icons=["house", "backpack", "file-person", "telephone"],
+            options=["Home", "Student", "Admin", "Contact", "Account"],
+            icons=["house", "backpack", "file-person", "telephone", "person-circle"],
             menu_icon="",
-            default_index=["Home", "Student", "Admin", "Contact"].index(st.session_state.selected_page)
+            default_index=["Home", "Student", "Admin", "Contact", "Account"].index(st.session_state.selected_page)
         )
-        
+
         if selected != st.session_state.selected_page:
             st.session_state.selected_page = selected
             st.rerun()
 
-    # Define functions to call based on selection
+    # Page routing
     page_functions = {
         "Home": home,
         "Student": student_function,
         "Admin": admin_function,
-        "Contact": contact
+        "Contact": contact,
+        "Account": account_page
     }
 
-    # Call the corresponding function for the selected page
-    page_functions[st.session_state.selected_page]()
+    if st.session_state.selected_page in ["Home", "Contact"]:
+        page_functions[st.session_state.selected_page]()
+    else:
+        if st.session_state.user is None:
+            st.warning("You need to log in to access this page.")
+            st.session_state.selected_page = "Login"
+            st.rerun()
+        else:
+            page_functions[st.session_state.selected_page]()
 
 if __name__ == "__main__":
     main()
