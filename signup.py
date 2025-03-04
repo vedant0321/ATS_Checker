@@ -66,7 +66,7 @@ def signup_page():
     col1, col2 = st.columns([1, 1], gap='medium', vertical_alignment="center")
 
     with col1:
-        st.image("signin.png", use_column_width=True)
+        st.image("signin.png")
     
     with col2:
         st.title("Sign Up")

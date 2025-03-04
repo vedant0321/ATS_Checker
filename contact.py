@@ -1,92 +1,38 @@
 import streamlit as st
-
-# Contact page styles
-CONTACT_PAGE_STYLES = """
-<style>
-[data-testid="stAppViewContainer"] {
-  background: linear-gradient(135deg, #000000 30%, #2e2e70 100%);
-}
-[data-testid="stHeader"] {
-  background-color: rgba(0, 0, 0, 0) !important;
-}
-.contact-heading {
-    font-size: 48px;
-    font-weight: bold;
-    margin-bottom: 30px;
-    color: white;
-    text-align: center;
-}
-.contact-form {
-    background-color: #1a1a40;
-    padding: 20px;
-    border-radius: 10px;
-    color: white;
-    font-size: 16px;
-}
-.stButton > button {
-    height: 45px;
-    width: 100%;
-    background-color: #6A5ACD;
-    color: white;
-    border-radius: 10px;
-    font-size: 18px;
-    margin: 10px 0;
-}
-.contact-details {
-    background-color: #1a1a40;
-    padding: 20px;
-    border-radius: 10px;
-    color: white;
-    font-size: 16px;
-    margin-top: 30px;
-}
-</style>
-"""
+import requests
+from PIL import Image
 
 def contact():
-    st.markdown(CONTACT_PAGE_STYLES, unsafe_allow_html=True)
-    st.markdown("<h1 class='contact-heading'>Contact Us</h1>", unsafe_allow_html=True)
-
-    # Contact form
-    with st.form(key="contact_form", clear_on_submit=True):
-        name = st.text_input("Your Name")
-        email = st.text_input("Your Email")
-        message = st.text_area("Your Message", height=150)
-        
-        submit_button = st.form_submit_button("Submit")
-
-    # If the form is submitted
-    if submit_button:
-        if name and email and message:
-            st.success("Thank you for contacting us. We will get back to you soon.")
-        else:
-            st.warning("Please fill out all the fields before submitting.")
+    st.title("Contact Us")
+    # Developer Cards Section
+    st.subheader("Meet Our Team")
+    col1,col2,col3= st.columns(3,gap='medium',border=True)
+    with col1:
+        st.image(r"image\om.png")
+        st.write("Om Wanjari")
+    with col2:
+        st.image(r"image\vedant.png")
+        st.write("Vedant Birewar")
+    with col3:
+        st.image(r"image\shreya.png")
+        st.write("Shreya Yadawar")
     
-    # Developer contact details
-    st.markdown("<h2 class='contact-heading'>Feel free to contact us:</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    <div class="contact-details">
-        <p><strong>Vedant Birewar</strong><br>
-        Phone: 94202777590<br>
-        Email: [Your Email Here]</p>
-        <p><strong>Om Wanjari</strong><br>
-        Phone: 7620495883<br>
-        Email: [Your Email Here]</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-def main():
-    if 'selected_page' not in st.session_state:
-        st.session_state.selected_page = "Home"
-
-    page_functions = {
-        "Home": home,  # Make sure to define home() function in the previous script
-        "Student": student_page,  # student_page function from your original script
-        "Admin": admin_page,  # admin_page function from your original script
-        "Contact": contact_page  # Contact page
-    }
-
-    page_functions[st.session_state.selected_page]()
+    col1,col2,col3= st.columns(3,gap='medium',border=True)
+    with col1:
+        st.image(r"image\shivam.png")
+        st.write("Shivam Durbule")
+    with col2:
+        st.image(r"image\vivek.png")
+        st.write("Vivek Togarvar")
+        
+    with col3:
+        st.title("")
+    st.components.v1.html("""
+        <div style="margin: 20px 0;">
+            <script src="https://sheetdb.io/s/f/i0t89k3ew8b6q.js"></script>
+        </div>
+    """, height=500)
+    # st.write("For any queries, please contact us at: ")
 
 if __name__ == "__main__":
-    main()
+    contact()

@@ -69,19 +69,6 @@ def load_docx_file(file_path):
         st.error(f"Template file not found at {file_path}")
         return None
 
-def create_stylable_card(key, title, content):
-    with stylable_container(key=key, css_styles=STYLES["card_style"]):
-        expander = st.expander(title)
-        with expander:
-            st.write(content)
-
-def add_section(title, cards):
-    st.subheader(title)
-    cols = st.columns(2)
-    for i, (card_key, card_title, card_content) in enumerate(cards):
-        with cols[i % 2]:
-            create_stylable_card(card_key, card_title, card_content)
-
 def navigation_button(label, page, unique_id):
     if st.button(label, key=f"{page.lower()}_{unique_id}_nav"):
         st.session_state.selected_page = page
@@ -93,11 +80,12 @@ def home():
     with st.container(border=True):
         col1, col2 = st.columns([1.5, 1])
         with col1:
-            st.title("Is your resume good enough?")
-            st.caption("AFIT leveraging technologies such as NLP and LLMs, and provides effective means for students to refine their resumes.")
-            navigation_button("🚀 Get Started", "Student", "header")
+            st.title("Is your resume good enough for compitative market?")
+            st.write(":grey[AFIT leveraging technologies such as NLP and LLMs, Unlock Student Potential with AI-Powered Career Insights]")
+            st.subheader("")
+            navigation_button("🚀 Get Started for free", "Student", "header")
         with col2:
-            st.image(IMAGE_PATH, use_column_width=True)
+            st.image(IMAGE_PATH, use_container_width=True)
 
     with stylable_container(key="resume_download", css_styles=STYLES["card_style"]):
         st.markdown("""
@@ -119,23 +107,41 @@ def home():
                 file_name="Professional_Resume_Template.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-
-    student_cards = [
-        ("card1", "Overall ATS Evaluation", "Using fine-tuned machine learning models, we analyze resumes for general ATS compatibility..."),
-        ("card2", "Job Description-Specific ATS Evaluation", "Our specialized model compares resumes against specific job descriptions..."),
-        ("card3", "Resume Improvement Suggestions", "We identify missing skills and experiences and offer actionable advice..."),
-        ("card4", "Customizable Resume Versions", "Create and manage multiple resume versions, tailored to different applications...")
-    ]
-    add_section("For Students", student_cards)
-    navigation_button("🚀 Student Page", "Student", "footer")
-
-    institution_cards = [
-        ("inst_card1", "Multiple Resumes", "Efficiently manage and analyze multiple student resumes..."),
-        ("inst_card2", "Visualization", "Gain insights through powerful data visualization..."),
-        ("inst_card3", "Segmentation", "Segment and categorize resumes effectively...")
-    ]
-    add_section("For Institutions", institution_cards)
-    navigation_button("🚀 Institution Page", "Admin", "footer")
+    st.title("")
+    st.subheader("Interactive dashboards to track student progress")
+    st.write(":grey[We visualize the data for proper analysis of data and find meaning in it]")
+    st.caption("")
+    st.image(r"dash.png")
+    
+    st.title("")
+    st.subheader("Key Features")
+    col1,col2,col3= st.columns([1.4,1,1],gap='medium',border=True)
+    with col1:
+        st.image(r"image\resume_analysis.png")
+        st.write("Resume Analysis with ATS Scoring")
+        st.caption("Evaluate resumes with AI-driven ATS scoring (1-100) to ensure industry readiness.")
+    with col2:
+        st.image(r"image\skill_gap.png")
+        st.write("Skill Gap Identification")
+        st.caption("Identify skill gaps and recommend actionable steps to bridge them effectively.")
+    with col3:
+        st.image(r"image\course.png")
+        st.write("AI-Powered Course Recommendations")
+        st.caption("Get personalized course suggestions tailored to industry demands and student profiles.")
+    
+    col1,col2,col3= st.columns([1,1,1.4],gap='medium',border=True)
+    with col1:
+        st.image(r"image\data_visual.png")
+        st.write("Data Visualization Dashboard")
+        st.caption("Track student progress and institutional performance with interactive dashboards.")
+    with col2:
+        st.image(r"image\bulk.png")
+        st.write("Bulk Resume Processing")
+        st.caption("Efficiently analyze multiple resumes for administrators and career counselors")
+    with col3:
+        st.image(r"image\job_desc.png")
+        st.write("Job Description Matching")
+        st.caption("Match student profiles with relevant job descriptions for better placement outcomes.") 
 
 def student_page():
     st.title("Student Page")

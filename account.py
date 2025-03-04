@@ -13,8 +13,9 @@ def account_page():
             user_data = {}  # Use an empty dictionary as a fallback
 
         st.title("Account Page")
-        st.write(f"Name: {user_data.get('name', 'Not Provided')}")
-        st.write(f"Email: {user_data.get('email', user.get('email', 'Not Provided'))}")
+        with st.container(border=True):
+                st.write(f":grey[Name] : {user_data.get('name', 'Not Provided')}")
+                st.write(f":grey[Email] : {user_data.get('email', user.get('email', 'Not Provided'))}")
     else:
         st.error("User not logged in")
 

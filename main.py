@@ -1,16 +1,14 @@
+# Ensure `st.set_page_config` is the first Streamlit command
 import streamlit as st
 from dotenv import load_dotenv
 from streamlit_option_menu import option_menu
-from login import login_page
-from signup import signup_page
-from account import account_page
-from home import home
-from student import student_function
-from admin import admin_function
-from contact import contact
 import base64
 from styles import hide_sidebar, show_sidebar, STYLES
 
+# Set page configuration (MUST be the first Streamlit command)
+st.set_page_config(page_title="My Streamlit App", layout="wide")
+
+# Now import other modules
 # Load environment variables
 load_dotenv()
 
@@ -20,12 +18,20 @@ def get_svg_base64(svg_path):
     return base64.b64encode(svg_data).decode()
 
 def main():
+    # Import modules here to avoid executing Streamlit commands during import
+    from login import login_page
+    from signup import signup_page
+    from account import account_page
+    from home import home
+    from student import student_function
+    from admin import admin_function
+    from contact import contact
+
     # Initialize session state
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "Home"
     if 'user' not in st.session_state:
         st.session_state.user = None
-
 
     # Authentication page routing
     if st.session_state.selected_page in ["Login", "Signup"]:

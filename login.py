@@ -68,54 +68,66 @@ def add_custom_css():
 # Helper function to authenticate the user
 def authenticate_user(email, password):
     try:
+        # Attempt to sign in user with Firebase
         user = auth_pyrebase.sign_in_with_email_and_password(email, password)
+        
+        # If authentication successful, get user data
         user_data = get_user_data(user['localId'])
         if not user_data:
-            # Handle the case where user data is not found
             st.warning("No additional user data found. Using default values.")
             user_data = {"name": "Unknown"}
         return user, user_data
+        
     except Exception as e:
-        error_message = str(e).lower()
-        if "invalid password" in error_message:
+        error_str = str(e)
+        
+        # Handle Firebase specific error messages
+        if "INVALID_PASSWORD" in error_str:
             st.error("Invalid password. Please try again.")
-        elif "invalid email" in error_message:
+        elif "INVALID_EMAIL" in error_str:
             st.error("Invalid email format. Please enter a valid email.")
-        elif "user not found" in error_message:
-            st.error("No account found with this email. Please check or sign up.")
+        elif "EMAIL_NOT_FOUND" in error_str:
+            st.error("No account found with this email. Please sign up first.")
+        elif "TOO_MANY_ATTEMPTS_TRY_LATER" in error_str:
+            st.error("Too many failed attempts. Please try again later.")
+        elif "INVALID_LOGIN_CREDENTIALS" in error_str:
+            st.error("Invalid login credentials. Please check your email and password.")
         else:
-            st.error(f"An error occurred: {e}")
+            # Log the full error for debugging
+            print(f"Firebase Auth Error: {error_str}")
+            st.error("An error occurred during login. Please try again.")
+        
         return None, None
-# Function to manage the login page
+
 def login_page():
     add_custom_css()
     
     col1, col2 = st.columns([1, 1], gap='medium')
     with col1:
-        st.image("login.png", use_column_width=True)
+        st.image("login.png")
     with col2:
         st.title("Login")
         
         email = st.text_input("Email", placeholder="Enter your email")
         password = st.text_input("Password", placeholder="Enter your password", type="password")
         
-        # Basic validation
         if st.button("Login"):
             if not email or not password:
                 st.error("Both email and password are required.")
             else:
-                user, user_data = authenticate_user(email, password)
-                
-                if user:
-                    st.success(f"Logged in as {email}")
-                    st.session_state["user"] = {
-                        "localId": user['localId'],
-                        "email": email,
-                        "name": user_data.get('name', 'Not Provided')  # Default fallback
-                    }
-                    st.session_state["selected_page"] = "Student"  # Redirect to Student page
-                    st.rerun()
-        # Signup option
+                # Add loading state while authenticating
+                with st.spinner("Logging in..."):
+                    user, user_data = authenticate_user(email, password)
+                    
+                    if user:
+                        st.success(f"Welcome back, {user_data.get('name', 'User')}!")
+                        st.session_state["user"] = {
+                            "localId": user['localId'],
+                            "email": email,
+                            "name": user_data.get('name', 'Not Provided')
+                        }
+                        st.session_state["selected_page"] = "Student"
+                        st.rerun()
         col1, col2 = st.columns(2, gap="small")
         with col1:
             st.markdown('<p class="signup-text">Don\'t have an account?</p>', unsafe_allow_html=True)
@@ -123,6 +135,7 @@ def login_page():
             if st.button("Sign up here", key="signup_link"):
                 st.session_state["selected_page"] = "Signup"
                 st.rerun()
+                
 # Run the app
 if __name__ == "__main__":
     login_page()
