@@ -345,7 +345,7 @@ def create_dashboard(df):
     for skills in df['tech_skills'].str.split(', '):
         if isinstance(skills, list):
             all_skills.update(skills)
-    all_skills.discard('None')  # Remove 'None' from filter options
+    all_skills.discard('None')  # Remove 'None' from filter optionsgit 
     selected_skills = st.sidebar.multiselect('Filter by Skills', sorted(all_skills))
     
     # Department filter
