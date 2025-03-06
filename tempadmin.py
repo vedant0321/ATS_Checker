@@ -1,347 +1,606 @@
+# import io
 # import streamlit as st
 # import pandas as pd
-# import plotly.express as px
-# from PyPDF2 import PdfReader
+# import pdfplumber
 # import spacy
 # from spacy.matcher import Matcher
 # import re
-# # st.set_page_config(page_title="Resume Analyzer Dashboard", layout="wide")
+# import plotly.express as px
+# import plotly.graph_objects as go
+# from plotly.subplots import make_subplots
+# from collections import Counter
+# from concurrent.futures import ThreadPoolExecutor
+# import logging
+
+# # Suppress Streamlit warnings
+# logging.getLogger("streamlit").setLevel(logging.ERROR)
 
 # # Load spaCy model
-# nlp = spacy.load("en_core_web_sm")
+# def load_nlp_model():
+#     try:
+#         return spacy.load("en_core_web_md")
+#     except OSError:
+#         st.warning("Downloading spaCy model. This may take a moment...")
+#         spacy.cli.download("en_core_web_md")
+#         return spacy.load("en_core_web_md")
 
-# # st.set_page_config(page_title="Resume Analyzer Dashboard", layout="wide")
+# nlp = load_nlp_model()
+
+# STYLES = {
+#     "page_bg_img": """
+#     <style>
+#     [data-testid="stAppViewContainer"] {
+#       background: linear-gradient(135deg, #000000 30%, #2e2e70 100%);
+#       background-size: cover;
+#     }
+#     [data-testid="stHeader"] {
+#       background-color: rgba(0, 0, 0, 0) !important;
+#     }
+#     """
+# }
+
+# # Improved Regex Patterns
+# PATTERNS = {
+#     'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b',
+#     'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
+#     'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
+#     'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d+(?:\.\d{1,2})?)%?\b'
+# }
+
+
+# DEPARTMENTS_MAPPING = {
+#     'Computer Technology': ["ct", "c.tech", "c.tech", "computer technology"],
+#     'Artificial Intelligence and Data Science': ["ai&ds","aids","artificial intelligence & data science", "ai and ds", "ai & data science"],
+#     'Information Technology': ["information technology", "it", "information tech"],
+#     'Electronics & Telecommunication Engineering': [
+#         "electronics", "electrical engineering",
+#         "electronic and telecommunication",
+#         "electronics and telecommunication",
+#         "etc", "e&tc", "e & tc", "e and tc"
+#     ],
+#     'Computer Science and Engineering': [
+#         "computer science engineering", "cse",
+#         "computer science & engineering",
+#         "computer engineering", "computer science",
+#         "cs", "cs&e", "cs & e", "cs and e"
+#     ],
+#     'Mechanical Engineering': ["mechanical engineering", "me", "mechanical", "mech"],
+#     'Artificial Intelligence & Data Science': [
+#         "data science", "machine learning",
+#         "artificial intelligence", "data analysis",
+#         "aids", "ai&ds", "ai ds", "ai & ds", "ai and ds"
+#     ],
+#     'Civil Engineering': ["civil engineering", "ce", "civil"],
+#     'Electrical Engineering': ["electrical engineering", "ee", "electrical"],
+#     'Artificial Intelligence & Machine Learning': [
+#         "machine learning", "artificial intelligence",
+#         "aiml", "ai&ml", "ai ml", "ai & ml", "ai and ml"
+#     ],
+#     'Industrial Internet of Things': [
+#         "industrial internet of things",
+#         "iiot", "industrial iot", "i-iot", "i iot"
+#     ],
+#     'Computer Science and Design': [
+#         "computer science and design",
+#         "computer design", "cs design", "csd", "cs & design", "cs and design"
+#     ],
+#     'Business Administration': [
+#         "business administration", "mba", "bba", "business management",
+#         "business studies", "management studies"
+#     ],
+#     'Finance': [
+#         "finance", "financial management", "accounting", "commerce",
+#         "banking", "investment", "financial analysis"
+#     ],
+#     'Marketing': [
+#         "marketing", "digital marketing", "brand management",
+#         "market research", "advertising", "sales"
+#     ],
+#     'Human Resources': [
+#         "human resources", "hr", "personnel management",
+#         "talent acquisition", "hr management", "hcm"
+#     ],
+#     'Operations': [
+#         "operations", "operations management", "supply chain",
+#         "logistics", "production management"
+#     ]
+# }
+
+# @st.cache_data(ttl=3600)
+# @st.cache_resource
+# def extract_text_from_pdf(file):
+#     """Extract text from PDF using pdfplumber."""
+#     text = ""
+#     with pdfplumber.open(file) as pdf:
+#         for page in pdf.pages:
+#             text += page.extract_text() or ""
+#     return text
+
+# ###################################################### Name ##################################################################
 
 # def extract_name(doc):
-#     # Extract the first line and split it into words
+#     """Extract name from first line or spaCy entities."""
 #     first_line = doc.text.strip().split('\n')[0]
 #     words = first_line.split()
-    
-#     # Check if the name is 2 to 30 characters long
 #     if 2 <= len(' '.join(words)) <= 30:
 #         return ' '.join(words)
-    
-#     # If not, use spaCy's named entity recognition as a fallback
 #     for ent in doc.ents:
 #         if ent.label_ == "PERSON":
 #             return ent.text
-    
 #     return "Unknown"
 
-# def extract_experience(doc):
-#     experience_patterns = [
-#         [{"LOWER": "experience"}, {"LOWER": "of"}, {"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}],
-#         [{"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}, {"LOWER": "experience"}],
-#         [{"LOWER": "worked"}, {"LOWER": "for"}, {"LIKE_NUM": True}, {"LOWER": {"IN": ["years", "year", "yrs", "yr"]}}],
-#         [{"LOWER": "internship"}, {"LOWER": {"IN": ["data", "science", "visualization"]}}]
-#     ]
-#     matcher = Matcher(nlp.vocab)
-#     for pattern in experience_patterns:
-#         matcher.add("EXPERIENCE", [pattern])
-#     matches = matcher(doc)
-#     for _, start, end in matches:
-#         span = doc[start:end]
-#         for token in span:
-#             if token.like_num:
-#                 return float(token.text)
-#     # Handle entry-level cases
-#     entry_level_keywords = ['entry level', 'fresh graduate', 'recent graduate', 'internship']
-#     if any(keyword in doc.text.lower() for keyword in entry_level_keywords):
-#         return 0
-#     return None
+# ###################################################### Email ##################################################################
+# def extract_email(text):
+#     """Robust email extraction."""
+#     match = re.search(PATTERNS['email'], text, re.IGNORECASE)
+#     return match.group(0) if match else None
 
-# def extract_education(doc):
-#     education_patterns = {
-#         'PhD': [{"LOWER": {"IN": ["phd", "ph.d.", "doctor", "doctorate"]}}, {"LOWER": "of", "OP": "?"}, {"LOWER": "philosophy", "OP": "?"}],
-#         'Master': [{"LOWER": {"IN": ["master", "masters", "m.s.", "m.eng.", "mba"]}}],
-#         'Bachelor': [{"LOWER": {"IN": ["bachelor", "bachelors", "b.s.", "b.e.", "b.tech", "btech", "bachelor of technology","b. tech"]}}]
+# ###################################################### Phone Number #################################################################
+
+# def extract_phone_number(text):
+#     """Enhanced phone number extraction."""
+#     match = re.search(PATTERNS['phone'], text)
+#     return match.group(0) if match else None
+# ###################################################### Education ##################################################################
+
+# def extract_degree(doc):
+#     """Improved degree extraction using advanced matcher."""
+#     degree_patterns = {
+#         'PhD': [
+#             {"LOWER": {"IN": ["phd", "ph.d", "doctorate"]}},
+#             {"LOWER": "of", "OP": "?"},
+#             {"LOWER": "philosophy", "OP": "?"}
+#         ],
+#         'Master': [
+#             {"LOWER": {"IN": ["master", "masters", "m.s", "m.tech", "mba"]}}
+#         ],
+#         'Bachelor': [
+#             {"LOWER": {"IN": ["bachelor", "bachelors", "b.s", "b.tech", "be"]}}
+#         ]
 #     }
+
 #     matcher = Matcher(nlp.vocab)
-#     for level, pattern in education_patterns.items():
+#     for level, pattern in degree_patterns.items():
 #         matcher.add(level, [pattern])
+
 #     matches = matcher(doc)
-#     for match_id, start, end in matches:
-#         return nlp.vocab.strings[match_id]
-#     return "Unknown"
+#     return nlp.vocab.strings[matches[0][0]] if matches else "Bachelor"
 
-# def extract_department(doc):
-#     departments = {
-#         'Computer Science & Technology': ["computer science", "computer technology"],
-#         'Information Technology': ["information technology"],
-#         'Electronics': ["electronics", "electrical engineering", "electronic and telecommunication"],
-#         'Mechanical': ["mechanical engineering"],
-#         'Artificial Intelligence & Data Science': ["data science", "machine learning", "artificial intelligence", "data analysis"],
-#         'Artificial Intelligence & Machine Learning': ["machine learning", "artificial intelligence"],
-#         'IIOT': ["industrial internet of things"],
-#         'Computer Science and Design': ["computer science and design"]
-#     }
-#     for dept, keywords in departments.items():
-#         if any(keyword in doc.text.lower() for keyword in keywords):
+# ###################################################### Department ##################################################################
+# def extract_department(doc, text):
+#     """Advanced department extraction with fuzzy matching."""
+#     text_lower = text.lower()
+
+#     # Direct keyword matching
+#     for dept, keywords in DEPARTMENTS_MAPPING.items():
+#         if any(re.search(r'\b' + re.escape(keyword) + r'\b', text_lower) for keyword in keywords):
 #             return dept
-#     return "Other"
 
-# def extract_skills(doc):
-#     skills = set(["Python", "Java", "C++", "JavaScript", "HTML", "CSS", "SQL", "React", "Angular", "Node.js",
-#         "Ruby", "PHP", "Swift", "Kotlin", "C#", "R", "Go", "TypeScript", "Vue.js", "Django", "Flask",
-#         "Spring", "Express.js", "Bootstrap", "Tailwind", "SASS", "LESS", "Perl", "Scala", "Rust",
-#         "Matlab", "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "Pandas", "NumPy", "Matplotlib",
-#         "Seaborn", "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Linux", "Windows Server", "Jenkins",
-#         "Git", "SVN", "CI/CD", "Ansible", "Chef", "Puppet", "Terraform", "Shell Scripting",
-#         "PowerShell", "Salesforce", "SAP", "Oracle", "MongoDB", "MySQL", "PostgreSQL", "Firebase",
-#         "Redis", "Elasticsearch", "Kafka", "RabbitMQ", "Hadoop", "Spark", "Tableau", "Power BI",
-#         "Excel", "Data Analysis", "Machine Learning", "Deep Learning", "Artificial Intelligence",
-#         "Natural Language Processing", "Computer Vision", "Blockchain", "IoT", "Cybersecurity",
-#         "Penetration Testing", "Network Security", "Cloud Security", "DevOps", "Agile", "Scrum",
-#         "Project Management", "Leadership", "Communication", "Teamwork", "Problem Solving",
-#         "Critical Thinking", "Time Management"])
+#     # Look for context clues in education sections
+#     education_keywords = ["degree", "graduated", "university", "college", "institute", "major", "specialization"]
+#     if any(keyword in text_lower for keyword in education_keywords):
+#         # Find the education section
+#         for line in text_lower.split('\n'):
+#             if any(keyword in line for keyword in education_keywords):
+#                 # Check for department keywords in this line
+#                 for dept, keywords in DEPARTMENTS_MAPPING.items():
+#                     if any(keyword in line for keyword in keywords):
+#                         return dept
 
-#     found_skills = set()
-#     for token in doc:
-#         if token.text in skills:
-#             found_skills.add(token.text)
-#     return ', '.join(sorted(found_skills))
+#     # Fall back to the most likely department based on technical skills
+#     tech_skills = extract_skills(doc, text)
+#     if tech_skills:
+#         # Count skills by department categories
+#         dept_scores = {}
+#         for skill in tech_skills.split(", "):
+#             skill_lower = skill.lower()
 
-# def extract_cgpa(doc):
-#     cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|percent):\s*(\d+(?:\.\d+)?)\b'
-#     match = re.search(cgpa_pattern, doc.text, re.IGNORECASE)
+#             # Map skills to departments
+#             if any(term in skill_lower for term in ["python", "data", "machine learning", "tensorflow", "statistics"]):
+#                 dept_scores["Artificial Intelligence & Data Science"] = dept_scores.get("Artificial Intelligence & Data Science", 0) + 1
+#             elif any(term in skill_lower for term in ["html", "css", "javascript", "web", "react", "angular"]):
+#                 dept_scores["Computer Science and Engineering"] = dept_scores.get("Computer Science and Engineering", 0) + 1
+#             elif any(term in skill_lower for term in ["circuit", "electrical", "electronics", "communication"]):
+#                 dept_scores["Electronics & Telecommunication Engineering"] = dept_scores.get("Electronics & Telecommunication Engineering", 0) + 1
+#             elif any(term in skill_lower for term in ["mechanical", "machinery", "thermodynamics", "fluid"]):
+#                 dept_scores["Mechanical Engineering"] = dept_scores.get("Mechanical Engineering", 0) + 1
+
+#         # Return the department with the highest score
+#         if dept_scores:
+#             return max(dept_scores.items(), key=lambda x: x[1])[0]
+
+#     return "Computer Science and Engineering"  # Default department
+
+
+
+# ###################################################### CGPA ##################################################################
+
+# def extract_cgpa(text):
+#     """Improved CGPA extraction."""
+#     match = re.search(PATTERNS['cgpa'], text, re.IGNORECASE)
 #     if match:
 #         cgpa = float(match.group(1))
-#         if 0 <= cgpa <= 10:
-#             return round(cgpa, 2)
+#         return round(cgpa, 2) if 0 <= cgpa <= 10 else None
 #     return None
+# ###################################################### Marks ##################################################################
 
 # def extract_marks(text):
-#     doc = nlp(text)
+#     """Advanced marks extraction."""
+#     matches = re.findall(PATTERNS['marks'], text, re.IGNORECASE)
 #     marks = {'ssc': None, 'hsc': None}
-#     current_context = None
 
-#     # Iterate over tokens and identify percentages & contexts
-#     for token in doc:
-#         token_text = token.text.lower()
-
-#         # Update context for SSC or HSC
-#         if token_text in ['ssc', 'class x', 'cbse']:
-#             current_context = 'ssc'
-#         elif token_text in ['hsc', 'class xii']:
-#             current_context = 'hsc'
-
-#         if not token.like_num:
-#             continue
-
-#         # Check for percentages (like '85%' or 'Percentage 85')
-#         if token.like_num:
-#             try:
-#                 percentage = float(token.text)  # Attempt conversion
-#             except:
-#                 continue
-            
-#             # Validate percentages in correct ranges and match contexts
-#             next_token = token.nbor() if token.i + 1 < len(doc) else None
-#             if (next_token and next_token.text == '%') or (0 <= percentage <= 100):
-#                 if current_context:
-#                     marks[current_context] = percentage
-#                     current_context = None
+#     if matches:
+#         for match in matches:
+#             percentage = float(match)
+#             if 0 <= percentage <= 100:
+#                 if not marks['ssc']:
+#                     marks['ssc'] = percentage
+#                 elif not marks['hsc']:
+#                     marks['hsc'] = percentage
 
 #     return marks['ssc'], marks['hsc']
-#     return marks['ssc'], marks['hsc']
 
-# def process_single_pdf(file):
-#     try:
-#         if file.type == "application/pdf":
-#             pdf_reader = PdfReader(file)
-#             text = ""
-#             for page in pdf_reader.pages:
-#                 text += page.extract_text()
-#         else:
-#             text = file.getvalue().decode("utf-8")
-        
-#         doc = nlp(text)
-        
-#         name = extract_name(doc)
-#         cgpa = extract_cgpa(doc)
-#         marks_10th, marks_12th = extract_marks(doc)
-        
-#         return {
-#             'name': name,
-#             'skills': extract_skills(doc),
-#             'department': extract_department(doc),
-#             'experience': extract_experience(doc),
-#             'education': extract_education(doc),
-#             'cgpa': cgpa,
-#             'marks_10th': marks_10th,
-#             'marks_12th': marks_12th
-#         }
-#     except Exception as e:
-#         st.error(f"Error processing file {file.name}: {str(e)}")
-#         return None
+# ###################################################### Hard Skills ##################################################################
 
-# def process_multiple_pdfs(files):
+# def extract_skills(doc):
+#     """Advanced skills extraction using comprehensive skill list and vector similarity."""
+#     tech_skills = [
+#         "Python", "Java", "C++", "JavaScript", "TypeScript", "HTML", "CSS", "SQL", "React", "Angular", "Vue.js",
+#         "Node.js", "Express.js", "Django", "Flask", "Spring", "Ruby on Rails", "ASP.NET", "PHP", "Swift", "Kotlin",
+#         "Go", "Rust", "R", "Perl", "Scala", "MATLAB", "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "Pandas",
+#         "NumPy", "Matplotlib", "Seaborn", "Plotly", "D3.js", "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Firebase",
+#         "Heroku", "Linux", "Windows Server", "Bash", "Shell Scripting", "PowerShell", "Git", "SVN", "CI/CD", "Jenkins",
+#         "Ansible", "Chef", "Puppet", "Terraform", "Prometheus", "Grafana", "ELK Stack", "Splunk", "Redis", "RabbitMQ",
+#         "Kafka", "Hadoop", "Spark", "Flink", "Airflow", "Tableau", "Power BI", "QlikView", "Excel", "SAS", "SPSS",
+#         "MongoDB", "MySQL", "PostgreSQL", "SQLite", "Oracle", "Cassandra", "Couchbase", "Neo4j", "GraphQL", "REST",
+#         "SOAP", "gRPC", "OAuth", "JWT", "Blockchain", "Ethereum", "Solidity", "Hyperledger", "Cybersecurity",
+#         "Penetration Testing", "Network Security", "Cloud Security", "DevOps", "Agile", "Scrum", "Kanban", "JIRA",
+#         "Confluence", "Trello", "Asana", "Slack", "Microsoft Teams", "Adobe Creative Suite", "Photoshop", "Illustrator",
+#         "Figma", "Sketch", "InVision", "Blender", "AutoCAD", "SolidWorks", "Arduino", "Raspberry Pi", "IoT", "Embedded Systems",
+#         "Machine Learning", "Deep Learning", "Natural Language Processing", "Computer Vision", "Robotics", "Augmented Reality",
+#         "Virtual Reality", "Quantum Computing", "Game Development", "Unity", "Unreal Engine", "OpenGL", "WebGL",
+#         "Data Engineering", "Data Warehousing", "ETL", "Data Governance", "Data Modeling", "Big Data", "Data Science",
+#         "Artificial Intelligence", "Chatbots", "Sentiment Analysis", "Recommender Systems", "Time Series Analysis",
+#         "Statistical Analysis", "A/B Testing", "User Experience (UX)", "User Interface (UI)", "Responsive Design",
+#         "Accessibility", "SEO", "Content Management Systems (CMS)", "WordPress", "Drupal", "Joomla", "E-commerce",
+#         "Shopify", "WooCommerce", "Magento", "Salesforce", "CRM", "ERP", "SAP", "Oracle ERP", "Microsoft Dynamics",
+#         "Mobile Development", "iOS", "Android", "Flutter", "React Native", "Ionic", "Xamarin", "Progressive Web Apps (PWA)",
+#         "Microservices", "Serverless Architecture", "Event-Driven Architecture", "Monolithic Architecture", "API Development",
+#         "API Gateway", "Graph Databases", "NoSQL", "NewSQL", "In-Memory Databases", "Data Lakes", "Data Mesh",
+#         "DataOps", "MLOps", "AIOps", "Edge Computing", "Fog Computing", "Quantum Cryptography", "Post-Quantum Cryptography",
+#         "Homomorphic Encryption", "Differential Privacy", "Federated Learning", "Zero Trust Architecture", "Identity Management",
+#         "Single Sign-On (SSO)", "Multi-Factor Authentication (MFA)", "Biometrics", "Compliance", "GDPR", "HIPAA", "ISO/IEC 27001"
+#     ]
+
+#     # Prepare skills by converting to lowercase for case-insensitive matching
+#     skills_lower = {skill.lower(): skill for skill in tech_skills}
+
+#     # Function to check skill match using various techniques
+#     def find_skill_matches(doc_text):
+#         found_skills = set()
+#         doc_text_lower = doc_text.lower()
+
+#         # Direct word matching
+#         for skill_lower, skill in skills_lower.items():
+#             # Whole word matching with word boundaries
+#             if re.search(r'\b' + re.escape(skill_lower) + r'\b', doc_text_lower):
+#                 found_skills.add(skill)
+
+#         return found_skills
+
+#     # Try different matching methods
+#     found_skills = find_skill_matches(doc.text)
+
+#     # If vector-based matching is desired, can add additional method
+#     if len(found_skills) < 5:
+#         # Vector-based similarity matching
+#         for skill in tech_skills:
+#             skill_vector = nlp(skill).vector
+#             if skill_vector.dot(doc.vector) > 0.5:
+#                 found_skills.add(skill)
+
+#     # Sort and return skills
+#     return ', '.join(sorted(found_skills)) if found_skills else "None"
+
+# ############################################################################soft skills############################################################
+
+# def extract_soft_skills(doc):
+#     """Extract soft skills with flexible and comprehensive matching."""
+#     soft_skills = set([
+#         # Leadership and Management
+#         "leadership", "team management", "strategic planning", "mentorship",
+#         "coaching", "decision making", "conflict resolution", "organizational skills",
+
+#         # Communication
+#         "communication", "public speaking", "presentation skills", "negotiation",
+#         "active listening", "written communication", "verbal communication",
+#         "cross-cultural communication", "storytelling",
+
+#         # Interpersonal Skills
+#         "teamwork", "collaboration", "networking", "relationship building",
+#         "emotional intelligence", "empathy", "interpersonal skills",
+#         "conflict management", "cultural awareness",
+
+#         # Problem-Solving and Analytical Skills
+#         "problem solving", "critical thinking", "analytical thinking",
+#         "creative problem solving", "strategic thinking", "innovation",
+#         "design thinking", "root cause analysis", "systems thinking",
+
+#         # Personal Effectiveness
+#         "time management", "adaptability", "resilience", "flexibility",
+#         "stress management", "self-motivation", "initiative", "proactivity",
+#         "continuous learning", "growth mindset",
+
+#         # Professional Attributes
+#         "professionalism", "work ethic", "attention to detail", "reliability",
+#         "accountability", "integrity", "customer service", "project coordination",
+
+#         # Emotional and Social Intelligence
+#         "emotional intelligence", "self-awareness", "social skills",
+#         "stress tolerance", "adaptability", "positive attitude",
+
+#         # Research and Analytical Skills
+#         "research skills", "data interpretation", "report writing",
+#         "strategic analysis", "market research", "trend analysis",
+
+#         # Creativity and Innovation
+#         "creativity", "innovative thinking", "brainstorming", "idea generation",
+#         "out-of-the-box thinking"
+#     ])
+
+#     found_soft_skills = set()
+#     text_lower = doc.text.lower()
+
+#     for skill in soft_skills:
+#         # More robust matching using regex to catch variations and context
+#         if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
+#             found_soft_skills.add(skill.title())
+
+#     # Optional: Add weight to skills found multiple times
+#     skill_counts = {}
+#     for skill in found_soft_skills:
+#         skill_counts[skill] = text_lower.count(skill.lower())
+
+#     # Sort skills by their frequency if multiple skills found
+#     sorted_skills = sorted(
+#         found_soft_skills,
+#         key=lambda x: skill_counts.get(x, 0),
+#         reverse=True
+#     )
+
+#     return ', '.join(sorted_skills) if sorted_skills else "None"
+# #################################################################################pdf processing#######################################################
+
+# @st.cache_data
+# @st.cache_resource
+# def process_multiple_pdfs(uploaded_files):
+#     """Process multiple PDF files sequentially to extract relevant information."""
 #     processed_data = []
-#     for file in files:
-#         result = process_single_pdf(file)
-#         if result:
-#             processed_data.append(result)
-#     return processed_data
 
+#     for uploaded_file in uploaded_files:
+#         try:
+#             # Extract text from the PDF using pdfplumber
+#             text = extract_text_from_pdf(io.BytesIO(uploaded_file.read()))
+
+#             # Process the text to extract relevant information
+#             doc = nlp(text)
+#             department = extract_department(doc, text)
+#             name = extract_name(doc)
+#             email = extract_email(text)
+#             phone_number = extract_phone_number(text)
+#             degree = extract_degree(doc)
+#             department = department
+#             cgpa = extract_cgpa(text)
+#             marks_10th, marks_12th = extract_marks(text)
+#             tech_skills = extract_skills(doc)
+#             soft_skills = extract_soft_skills(doc)
+
+#             # Append the extracted information to the processed data list
+#             processed_data.append({
+#                 "name": name,
+#                 "email": email,
+#                 "phone_number": phone_number,
+#                 "degree": degree,
+#                 "department": department,
+#                 "cgpa": cgpa,
+#                 "marks_10th": marks_10th,
+#                 "marks_12th": marks_12th,
+#                 "tech_skills": tech_skills,
+#                 "soft_skills": soft_skills
+#             })
+#         except Exception as e:
+#             # Handle any exceptions that occur during processing
+#             print(f"Error processing file {uploaded_file.name}: {e}")
+
+#     return processed_data
+# ##########################################################################dashboard##############################################################
+# def create_dashboard(df):
+#     st.title("Dashboard")
+
+#     valid_cgpa = df['cgpa'].dropna()
+#     avg_cgpa = valid_cgpa.mean() if not valid_cgpa.empty else 0
+
+#     valid_marks_10th = df['marks_10th'].dropna()
+#     avg_marks_10th = valid_marks_10th.mean() if not valid_marks_10th.empty else 0
+
+#     valid_marks_12th = df['marks_12th'].dropna()
+#     avg_marks_12th = valid_marks_12th.mean() if not valid_marks_12th.empty else 0
+
+#     st.sidebar.title("Filters")
+
+#     all_skills = set()
+#     for skills in df['tech_skills'].str.split(', '):
+#         if isinstance(skills, list):
+#             all_skills.update(skills)
+#     all_skills.discard('None')
+#     selected_skills = st.sidebar.multiselect('Filter by Skills', sorted(all_skills))
+
+#     departments = df['degree'].unique()
+#     selected_departments = st.sidebar.multiselect('Filter by Department', departments)
+
+#     cgpa_min, cgpa_max = float(df['cgpa'].min() if df['cgpa'].notna().any() else 0), float(df['cgpa'].max() if df['cgpa'].notna().any() else 10)
+#     cgpa_range = st.sidebar.slider('CGPA Range', cgpa_min, cgpa_max, (cgpa_min, cgpa_max))
+
+#     marks_10th_min, marks_10th_max = float(df['marks_10th'].min() if df['marks_10th'].notna().any() else 0), float(df['marks_10th'].max() if df['marks_10th'].notna().any() else 100)
+#     marks_10th_range = st.sidebar.slider('10th Percentage Range', marks_10th_min, marks_10th_max, (marks_10th_min, marks_10th_max))
+
+#     marks_12th_min, marks_12th_max = float(df['marks_12th'].min() if df['marks_12th'].notna().any() else 0), float(df['marks_12th'].max() if df['marks_12th'].notna().any() else 100)
+#     marks_12th_range = st.sidebar.slider('12th Percentage Range', marks_12th_min, marks_12th_max, (marks_12th_min, marks_12th_max))
+
+#     filtered_df = df.copy()
+#     if selected_skills:
+#         filtered_df = filtered_df[filtered_df['tech_skills'].apply(lambda x: any(skill in x.split(', ') for skill in selected_skills) if isinstance(x, str) else False)]
+#     if selected_departments:
+#         filtered_df = filtered_df[filtered_df['degree'].isin(selected_departments)]
+#     filtered_df = filtered_df[
+#         (filtered_df['cgpa'].fillna(cgpa_min).between(cgpa_range[0], cgpa_range[1], inclusive='both')) &
+#         (filtered_df['marks_10th'].fillna(marks_10th_min).between(marks_10th_range[0], marks_10th_range[1], inclusive='both')) &
+#         (filtered_df['marks_12th'].fillna(marks_12th_min).between(marks_12th_range[0], marks_12th_range[1], inclusive='both'))
+#     ]
+
+#     # First Row: KPIs
+#     col1, col2, col3 = st.columns(3, gap='medium')
+#     with col1:
+#         with st.container(border=True):
+#            st.metric("Total Students", len(filtered_df))
+#     with col2:
+#         with st.container(border=True):
+#            avg_cgpa = filtered_df['cgpa'].mean() if not filtered_df['cgpa'].isna().all() else 0
+#            st.metric("Average CGPA", f"{avg_cgpa:.2f}")
+#     with col3:
+#         with st.container(border=True):
+#            all_skills = [skill for skills in filtered_df['tech_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
+#            top_skill = Counter(all_skills).most_common(1)[0][0] if all_skills else "N/A"
+#            st.metric("Top Skill", top_skill)
+
+#     # Second Row: Area Graph for All Technical Skills
+#     with st.container():
+#         all_skills = [skill for skills in filtered_df['tech_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
+#         skills_count = Counter(all_skills)
+#         skills_df = pd.DataFrame.from_dict(skills_count, orient='index').reset_index()
+#         skills_df.columns = ['Skill', 'Count']
+#         fig_skills = px.area(skills_df.sort_values('Count', ascending=False),
+#                            x='Skill',
+#                            y='Count',
+#                            title='Technical Skills Distribution')
+#         fig_skills.update_layout(
+#             xaxis={'tickangle': 45},
+#         )
+#         st.plotly_chart(fig_skills, use_container_width=True)
+
+#     # Third Row: Line Graph for Soft Skills and Donut for CGPA
+#     col1, col2 = st.columns([2,1], gap="medium")
+#     with col1:
+#         with st.container():
+#             soft_skills = [skill for skills in filtered_df['soft_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
+#             soft_skills_count = Counter(soft_skills)
+#             soft_skills_df = pd.DataFrame.from_dict(soft_skills_count, orient='index').reset_index()
+#             soft_skills_df.columns = ['Skill', 'Count']
+#             fig_soft = px.line(soft_skills_df,
+#                              x='Skill',
+#                              y='Count',
+#                              title='Soft Skills Distribution')
+#             st.plotly_chart(fig_soft, use_container_width=True)
+
+#     with col2:
+#         with st.container():
+#             cgpa_ranges = pd.cut(filtered_df['cgpa'],
+#                                bins=[0, 6, 7, 8, 9, 10],
+#                                labels=['<6', '6-7', '7-8', '8-9', '9-10'])
+#             cgpa_dist = cgpa_ranges.value_counts().sort_index()
+#             fig_cgpa = go.Figure(data=[go.Pie(labels=cgpa_dist.index,
+#                                             values=cgpa_dist.values,
+#                                             hole=.3)])
+#             fig_cgpa.update_layout(title='CGPA Distribution')
+#             st.plotly_chart(fig_cgpa, use_container_width=True)
+
+#     # Fourth Row: Bar Graph for Departments and Pie for 10th, 12th Percentage
+#     col1, col2, col3 = st.columns([2,1,1], gap='medium')
+#     with col1:
+#         with st.container():
+#             dept_count = filtered_df['department'].value_counts()
+#             fig_dept = px.bar(x=dept_count.index,
+#                             y=dept_count.values,
+#                             title='Department Distribution')
+#             st.plotly_chart(fig_dept, use_container_width=True)
+
+#     with col2:
+#         with st.container():
+#             marks_10th_bins = pd.cut(filtered_df['marks_10th'],
+#                                    bins=[0, 60, 70, 80, 90, 100],
+#                                    labels=['<60', '60-70', '70-80', '80-90', '90-100'])
+#             marks_10th_dist = marks_10th_bins.value_counts().sort_index()
+#             fig_10th = px.pie(names=marks_10th_dist.index,
+#                             values=marks_10th_dist.values,
+#                             title='10th Percentage Distribution')
+#             st.plotly_chart(fig_10th, use_container_width=True)
+
+#     with col3:
+#         with st.container():
+#             marks_12th_bins = pd.cut(filtered_df['marks_12th'],
+#                                    bins=[0, 60, 70, 80, 90, 100],
+#                                    labels=['<60', '60-70', '70-80', '80-90', '90-100'])
+#             marks_12th_dist = marks_12th_bins.value_counts().sort_index()
+#             fig_12th = px.pie(names=marks_12th_dist.index,
+#                             values=marks_12th_dist.values,
+#                             title='12th Percentage Distribution')
+#             st.plotly_chart(fig_12th, use_container_width=True)
+
+#     # Filtered Students Table
+#     st.markdown("### Filtered Students")
+#     display_df = filtered_df[['name', 'email', 'phone_number', 'degree', 'cgpa', 'department', 'marks_10th', 'marks_12th', 'tech_skills', 'soft_skills']]
+#     format_dict = {
+#         'phone_number': lambda x: str(x) if x is not None else "N/A",
+#         'cgpa': lambda x: "{:.2f}".format(x) if x is not None else "N/A",
+#         'marks_10th': lambda x: "{:.2f}".format(x) if x is not None else "N/A",
+#         'marks_12th': lambda x: "{:.2f}".format(x) if x is not None else "N/A"
+#     }
+#     st.dataframe(display_df.style.format(format_dict))
+
+#     if st.button("Export Filtered Data to CSV"):
+#         csv = filtered_df.to_csv(index=False)
+#         st.download_button(
+#             label="Download Filtered CSV",
+#             data=csv,
+#             file_name="filtered_resume_data.csv",
+#             mime="text/csv",
+#         )
+
+
+# #####################################################################################################################################
 # def admin_function():
-#     st.title("Interactive Resume Analyzer Dashboard")
+#     st.markdown(STYLES["page_bg_img"], unsafe_allow_html=True)
+
+#     st.title("Interactive Resume Analyzer")
 
 #     uploaded_files = st.file_uploader("Upload resumes (PDF, TXT)", type=['pdf', 'txt'], accept_multiple_files=True)
 
 #     if uploaded_files:
-#         with st.spinner('Processing resumes...'):
-#             processed_data = process_multiple_pdfs(uploaded_files)
-#         df = pd.DataFrame(processed_data)
-
-#         if df.empty:
-#             st.warning("No data extracted from the resumes.")
+#         # Add validation to check if at least 2 files are uploaded
+#         if len(uploaded_files) < 2:
+#             st.error("Please upload at least 2 resume files to proceed with analysis.")
 #             return
 
-#         # Convert CGPA, 10th marks, and 12th marks to numeric, forcing errors to NaN
-#         df['cgpa'] = pd.to_numeric(df['cgpa'], errors='coerce')
-#         df['marks_10th'] = pd.to_numeric(df['marks_10th'], errors='coerce')
-#         df['marks_12th'] = pd.to_numeric(df['marks_12th'], errors='coerce')
+#         # Use a single spinner for the entire processing block
+#         with st.spinner('Processing resumes...'):
+#             processed_data = process_multiple_pdfs(uploaded_files)
+#             df = pd.DataFrame(processed_data)
 
-#         # Sidebar filters
-#         st.sidebar.subheader("Filter Options")
-        
-#         # Show all resumes option
-#         show_all = st.sidebar.checkbox("Show All Resumes", value=True)
-        
-#         # CGPA filter
-#         if show_all:
-#             cgpa_min = 0.0
+#         if not df.empty:
+#             st.write(f"Total resumes uploaded: {len(uploaded_files)}")
+#             st.write(f"Successfully processed resumes: {len(df)}")
+#             create_dashboard(df)
 #         else:
-#             cgpa_min = st.sidebar.slider("Minimum CGPA", min_value=6.0, max_value=10.0, value=6.0, step=0.1)
-
-#         # 10th Marks filter
-#         if show_all:
-#             marks_10th_min = 0
-#         else:
-#             marks_10th_min = st.sidebar.slider("Minimum 10th Marks (%)", min_value=0, max_value=100, value=60)
-
-#         # 12th Marks filter
-#         if show_all:
-#             marks_12th_min = 0
-#         else:
-#             marks_12th_min = st.sidebar.slider("Minimum 12th Marks (%)", min_value=0, max_value=100, value=60)
-
-#         # Skills filter
-#         all_skills = set(','.join(df['skills'].dropna()).replace(', ', ',').split(','))
-#         selected_skills = st.sidebar.multiselect("Select Skills", options=sorted(list(all_skills)))
-        
-#         # Department filter
-#         departments = sorted(df['department'].unique())
-#         selected_departments = st.sidebar.multiselect("Select Departments", options=departments, default=departments)
-        
-#         # Education filter
-#         education_levels = sorted(df['education'].unique())
-#         selected_education = st.sidebar.multiselect("Select Education Levels", options=education_levels, default=education_levels)
-
-#         # Apply filters
-#         mask = (df['department'].isin(selected_departments)) & \
-#                (df['education'].isin(selected_education))
-        
-#         if not show_all:
-#             mask &= (df['cgpa'].fillna(0) >= cgpa_min) & \
-#                    (df['marks_10th'].fillna(0) >= marks_10th_min) & \
-#                    (df['marks_12th'].fillna(0) >= marks_12th_min)
-        
-#         if selected_skills:
-#             mask &= df['skills'].apply(lambda x: any(skill in str(x) for skill in selected_skills))
-
-#         filtered_df = df[mask]
-
-#         # Display filtered data
-#         st.subheader(f"Filtered Resume Data ({len(filtered_df)} candidates)")
-#         st.dataframe(filtered_df)
-
-#         if not filtered_df.empty:
-#             col1, col2, col3 = st.columns(3)
-
-#             with col1:
-#                 st.subheader("CGPA Distribution")
-#                 valid_cgpa = filtered_df['cgpa'].dropna()
-#                 if not valid_cgpa.empty:
-#                     cgpa_bins = pd.cut(valid_cgpa, bins=5)
-#                     cgpa_counts = cgpa_bins.value_counts().sort_index()
-#                     fig_cgpa = px.pie(values=cgpa_counts.values, names=cgpa_counts.index.astype(str),
-#                                       title=f'CGPA Distribution (Min: {cgpa_min})')
-#                     st.plotly_chart(fig_cgpa, use_container_width=True)
-#                 else:
-#                     st.write("No CGPA data available")
-
-#             with col2:
-#                 st.subheader("10th Marks Distribution")
-#                 valid_10th = filtered_df['marks_10th'].dropna()
-#                 if not valid_10th.empty:
-#                     marks_10th_bins = pd.cut(valid_10th, bins=5)
-#                     marks_10th_counts = marks_10th_bins.value_counts().sort_index()
-#                     fig_10th = px.pie(values=marks_10th_counts.values, names=marks_10th_counts.index.astype(str),
-#                                       title=f'10th Marks Distribution (Min: {marks_10th_min}%)')
-#                     st.plotly_chart(fig_10th, use_container_width=True)
-#                 else:
-#                     st.write("No 10th marks data available")
-
-#             with col3:
-#                 st.subheader("12th Marks Distribution")
-#                 valid_12th = filtered_df['marks_12th'].dropna()
-#                 if not valid_12th.empty:
-#                     marks_12th_bins = pd.cut(valid_12th, bins=5)
-#                     marks_12th_counts = marks_12th_bins.value_counts().sort_index()
-#                     fig_12th = px.pie(values=marks_12th_counts.values, names=marks_12th_counts.index.astype(str),
-#                                       title=f'12th Marks Distribution (Min: {marks_12th_min}%)')
-#                     st.plotly_chart(fig_12th, use_container_width=True)
-#                 else:
-#                     st.write("No 12th marks data available")
-
-#             col4, col5 = st.columns(2)
-
-#             with col4:
-#                 st.subheader("Department Distribution")
-#                 fig_dept = px.pie(filtered_df, names='department', title='Departments')
-#                 st.plotly_chart(fig_dept, use_container_width=True)
-
-#             with col5:
-#                 st.subheader("Education Level Distribution")
-#                 fig_edu = px.pie(filtered_df, names='education', title='Education Levels')
-#                 st.plotly_chart(fig_edu, use_container_width=True)
-
-#             st.subheader("Skills Breakdown")
-#             if not filtered_df['skills'].empty:
-#                 skills_count = filtered_df['skills'].str.split(', ').explode().value_counts()
-#                 fig_skills = px.bar(skills_count, x=skills_count.index, y=skills_count.values,
-#                                     title='Top Skills',
-#                                     labels={'index': 'Skills', 'value': 'Count'})
-#                 fig_skills.update_layout(xaxis_tickangle=-45)
-#                 st.plotly_chart(fig_skills, use_container_width=True)
-                
-#             st.subheader("Candidate Details")
-#             for _, row in filtered_df.iterrows():
-#                 with st.expander(f"{row['name']} - {row['department']}"):
-#                     col1, col2 = st.columns(2)
-#                     with col1:
-#                         st.write(f"**Education:** {row['education']}")
-#                         st.write(f"**CGPA:** {row['cgpa']}")
-#                         st.write(f"**Experience:** {row['experience']} years")
-#                     with col2:
-#                         st.write(f"**10th Marks:** {row['marks_10th']}%")
-#                         st.write(f"**12th Marks:** {row['marks_12th']}%")
-#                     st.write(f"**Skills:** {row['skills']}")
-
-#             if st.button("Export Filtered Data to CSV"):
-#                 csv = filtered_df.to_csv(index=False)
-#                 st.download_button(
-#                     label="Download CSV",
-#                     data=csv,
-#                     file_name="filtered_resume_data.csv",
-#                     mime="text/csv",
-#                 )
-#         else:
-#             st.warning("No resumes match the current filter criteria.")
-
+#             st.warning("No data extracted from the resumes.")
 #     else:
-#         st.warning("Please upload PDF or TXT resumes to proceed with analysis.")
+#         st.warning("Please upload PDF or TXT resumes to proceed with extraction.")
 
 # if __name__ == "__main__":
 #     admin_function()
+
+
+
+
+
+
+

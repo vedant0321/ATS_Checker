@@ -158,6 +158,7 @@ def create_progress_indicator(score, key_prefix):
         showlegend=False,
         textinfo='none',
         hoverinfo='skip'
+        
     ))
     
     fig.update_layout(
@@ -245,7 +246,6 @@ Evaluate and score (0-100) based on the following parameters:
    - Indication of teamwork abilities
    - Leadership qualities
    - Drive and initiative
-
 Format your response as:
 SCORE: [number]
 ANALYSIS:
@@ -328,17 +328,19 @@ Focus on optimizing the resume to increase its effectiveness for both recruiters
 def student_function():
     st.markdown(STYLES, unsafe_allow_html=True)
     st.title("Professional Resume Analyzer")    
-    st.write(":grey[Optimize your resume for your dream job using AI-powered analysis]")
+    st.write(":grey[🔥 Get detailed feedback on your resume to enhance your job application success rate.]")
 
     if 'counter' not in st.session_state:
         st.session_state.counter = 0
     if 'results' not in st.session_state:
         st.session_state.results = {}
-
+    st.info("Pdf Format only supported")
     with st.container():
         with st.container(border=True):
-            uploaded_file = st.file_uploader("📄 Upload your resume (PDF or DOCX)", type=['pdf', 'docx'], key="resume_upload")
-        
+            uploaded_file = st.file_uploader("📄 Upload your resume in PDF", type=['pdf'], key="resume_upload")
+        if uploaded_file == 0:
+            st.error("The uploaded file is empty. Please upload a valid PDF.")
+            return
         if uploaded_file:
             pdf_content = process_single_pdf(uploaded_file)
             with st.container(border=True):

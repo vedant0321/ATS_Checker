@@ -3,8 +3,8 @@ from streamlit_extras.stylable_container import stylable_container
 import os
 
 # Constants
-TEMPLATE_PATH = r"STT.docx"
-IMAGE_PATH = r"ats.png"
+TEMPLATE_PATH = r"stt.docx"
+IMAGE_PATH = r"image.png"
 
 # Styles
 STYLES = {
@@ -97,14 +97,14 @@ def home():
                 Download Our Professional Resume Template
             </h3>
         """, unsafe_allow_html=True)
-        st.caption("Get a head start with our professionally designed template!")
+        st.caption("High ATS Score Resume Template 👇🏼")
         
         docx_file = load_docx_file(TEMPLATE_PATH)
         if docx_file is not None:
             st.download_button(
                 label="⬇️ Download Template",
                 data=docx_file,
-                file_name="Professional_Resume_Template.docx",
+                file_name="Sample_Resume_Format.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
     st.title("")
