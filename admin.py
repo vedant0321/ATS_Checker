@@ -40,12 +40,19 @@ STYLES = {
 }
 
 # Improved Regex Patterns
-PATTERNS = {
-    'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b',
-    'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
-    'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
-    'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d+(?:\.\d{1,2})?)%?\b'
-}
+# PATTERNS = {
+#     # 'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b',
+#     # 'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
+#     # 'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
+#     # 'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d+(?:\.\d{1,2})?)%?\b'
+
+#     'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}\b',
+#     'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
+#     'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[\s:]*([\d]+(?:\.\d{1,2})?)(?:\s*/\s*10)?\b',
+#     'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d{1,3}(?:\.\d{1,2})?)%?\b'
+
+
+# }
 
 
 DEPARTMENTS_MAPPING = {
@@ -131,16 +138,18 @@ def extract_name(doc):
 
 ###################################################### Email ##################################################################
 def extract_email(text):
-    """Robust email extraction."""
-    match = re.search(PATTERNS['email'], text, re.IGNORECASE)
+    """Extract email using regex."""
+    email_pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    match = re.search(email_pattern, text)
     return match.group(0) if match else None
-
 ###################################################### Phone Number #################################################################
 
 def extract_phone_number(text):
-    """Enhanced phone number extraction."""
-    match = re.search(PATTERNS['phone'], text)
+    """Extract phone number using regex."""
+    phone_pattern = r'\+?\d[\d -]{8,12}\d'
+    match = re.search(phone_pattern, text)
     return match.group(0) if match else None
+
 ###################################################### Education ##################################################################
 
 def extract_degree(doc):
@@ -216,27 +225,44 @@ def extract_department(doc, text):
 ###################################################### CGPA ##################################################################
 
 def extract_cgpa(text):
-    """Improved CGPA extraction."""
-    match = re.search(PATTERNS['cgpa'], text, re.IGNORECASE)
+    # cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|percent):\s*(\d+(?:\.\d+)?)\b'
+    cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b'
+    #     # 'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
+
+    match = re.search(cgpa_pattern, text, re.IGNORECASE)
     if match:
         cgpa = float(match.group(1))
-        return round(cgpa, 2) if 0 <= cgpa <= 10 else None
+        if 0 <= cgpa <= 10:
+            return round(cgpa, 2)
     return None
 ###################################################### Marks ##################################################################
 
 def extract_marks(text):
-    """Advanced marks extraction."""
-    matches = re.findall(PATTERNS['marks'], text, re.IGNORECASE)
+    doc = nlp(text)
     marks = {'ssc': None, 'hsc': None}
+    current_context = None
 
-    if matches:
-        for match in matches:
-            percentage = float(match)
-            if 0 <= percentage <= 100:
-                if not marks['ssc']:
-                    marks['ssc'] = percentage
-                elif not marks['hsc']:
-                    marks['hsc'] = percentage
+    for token in doc:
+        token_text = token.text.lower()
+        if token_text in ['ssc', 'class x', 'cbse']:
+            current_context = 'ssc'
+        elif token_text in ['hsc', 'class xii']:
+            current_context = 'hsc'
+
+        if not token.like_num:
+            continue
+
+        if token.like_num:
+            try:
+                percentage = float(token.text)
+            except:
+                continue
+            
+            next_token = token.nbor() if token.i + 1 < len(doc) else None
+            if (next_token and next_token.text == '%') or (0 <= percentage <= 100):
+                if current_context:
+                    marks[current_context] = percentage
+                    current_context = None
 
     return marks['ssc'], marks['hsc']
 
