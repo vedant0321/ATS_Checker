@@ -9,7 +9,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 import logging
 
 # Suppress Streamlit warnings
@@ -40,21 +39,6 @@ STYLES = {
 }
 
 # Improved Regex Patterns
-# PATTERNS = {
-#     # 'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b',
-#     # 'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
-#     # 'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
-#     # 'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d+(?:\.\d{1,2})?)%?\b'
-
-#     'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}\b',
-#     'phone': r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}\b',
-#     'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[\s:]*([\d]+(?:\.\d{1,2})?)(?:\s*/\s*10)?\b',
-#     'marks': r'\b(?:10th|X|SSC|12th|XII|HSC)[^\d]*(\d{1,3}(?:\.\d{1,2})?)%?\b'
-
-
-# }
-
-
 DEPARTMENTS_MAPPING = {
     'Computer Technology': ["ct", "c.tech", "c.tech", "computer technology"],
     'Artificial Intelligence and Data Science': ["ai&ds","aids","artificial intelligence & data science", "ai and ds", "ai & data science","Artificial Intelligence and Data Science","ai&ds","aids","artificial intelligence & data science", "ai and ds", "ai & data science"],
@@ -197,7 +181,7 @@ def extract_department(doc, text):
                         return dept
 
     # Fall back to the most likely department based on technical skills
-    tech_skills = extract_skills(doc, text)
+    tech_skills = extract_skills(doc)
     if tech_skills:
         # Count skills by department categories
         dept_scores = {}
@@ -220,15 +204,10 @@ def extract_department(doc, text):
 
     return "Computer Science and Engineering"  # Default department
 
-
-
 ###################################################### CGPA ##################################################################
 
 def extract_cgpa(text):
-    # cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|percent):\s*(\d+(?:\.\d+)?)\b'
     cgpa_pattern = r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b'
-    #     # 'cgpa': r'\b(?:CGPA|GPA|cgpa|gpa|percentage|Percentage)[ :]*(\d+(?:\.\d{1,2})?)(?:/10)?\b',
-
     match = re.search(cgpa_pattern, text, re.IGNORECASE)
     if match:
         cgpa = float(match.group(1))
@@ -443,6 +422,7 @@ def process_multiple_pdfs(uploaded_files):
 def create_dashboard(df):
     st.title("Dashboard")
 
+    # Calculate metrics safely with checks for empty data
     valid_cgpa = df['cgpa'].dropna()
     avg_cgpa = valid_cgpa.mean() if not valid_cgpa.empty else 0
 
@@ -454,6 +434,7 @@ def create_dashboard(df):
 
     st.sidebar.title("Filters")
 
+    # Extract all skills from the dataframe
     all_skills = set()
     for skills in df['tech_skills'].str.split(', '):
         if isinstance(skills, list):
@@ -461,27 +442,50 @@ def create_dashboard(df):
     all_skills.discard('None')
     selected_skills = st.sidebar.multiselect('Filter by Skills', sorted(all_skills))
 
-    departments = df['degree'].unique()
+    # Get unique departments
+    departments = df['department'].unique()
     selected_departments = st.sidebar.multiselect('Filter by Department', departments)
 
-    cgpa_min, cgpa_max = float(df['cgpa'].min() if df['cgpa'].notna().any() else 0), float(df['cgpa'].max() if df['cgpa'].notna().any() else 10)
+    # Handle slider ranges with safe fallbacks
+    # CGPA slider
+    if df['cgpa'].notna().any():
+        cgpa_min, cgpa_max = float(df['cgpa'].min()), float(df['cgpa'].max())
+    else:
+        cgpa_min, cgpa_max = 0.0, 10.0  # Default range if no CGPA data
     cgpa_range = st.sidebar.slider('CGPA Range', cgpa_min, cgpa_max, (cgpa_min, cgpa_max))
 
-    marks_10th_min, marks_10th_max = float(df['marks_10th'].min() if df['marks_10th'].notna().any() else 0), float(df['marks_10th'].max() if df['marks_10th'].notna().any() else 100)
+    # 10th marks slider
+    if df['marks_10th'].notna().any():
+        marks_10th_min, marks_10th_max = float(df['marks_10th'].min()), float(df['marks_10th'].max())
+    else:
+        marks_10th_min, marks_10th_max = 0.0, 100.0  # Default range if no 10th marks data
     marks_10th_range = st.sidebar.slider('10th Percentage Range', marks_10th_min, marks_10th_max, (marks_10th_min, marks_10th_max))
 
-    marks_12th_min, marks_12th_max = float(df['marks_12th'].min() if df['marks_12th'].notna().any() else 0), float(df['marks_12th'].max() if df['marks_12th'].notna().any() else 100)
+    # 12th marks slider
+    if df['marks_12th'].notna().any():
+        marks_12th_min, marks_12th_max = float(df['marks_12th'].min()), float(df['marks_12th'].max())
+    else:
+        marks_12th_min, marks_12th_max = 0.0, 100.0  # Default range if no 12th marks data
     marks_12th_range = st.sidebar.slider('12th Percentage Range', marks_12th_min, marks_12th_max, (marks_12th_min, marks_12th_max))
 
+    # Apply filters to create filtered dataframe
     filtered_df = df.copy()
+    
+    # Apply skill filter if selected
     if selected_skills:
-        filtered_df = filtered_df[filtered_df['tech_skills'].apply(lambda x: any(skill in x.split(', ') for skill in selected_skills) if isinstance(x, str) else False)]
+        filtered_df = filtered_df[filtered_df['tech_skills'].apply(
+            lambda x: any(skill in x.split(', ') for skill in selected_skills) if isinstance(x, str) else False
+        )]
+    
+    # Apply department filter if selected
     if selected_departments:
-        filtered_df = filtered_df[filtered_df['degree'].isin(selected_departments)]
+        filtered_df = filtered_df[filtered_df['department'].isin(selected_departments)]
+    
+    # Apply range filters with NaN handling
     filtered_df = filtered_df[
-        (filtered_df['cgpa'].fillna(cgpa_min).between(cgpa_range[0], cgpa_range[1], inclusive='both')) &
-        (filtered_df['marks_10th'].fillna(marks_10th_min).between(marks_10th_range[0], marks_10th_range[1], inclusive='both')) &
-        (filtered_df['marks_12th'].fillna(marks_12th_min).between(marks_12th_range[0], marks_12th_range[1], inclusive='both'))
+        (filtered_df['cgpa'].isna() | filtered_df['cgpa'].between(cgpa_range[0], cgpa_range[1])) &
+        (filtered_df['marks_10th'].isna() | filtered_df['marks_10th'].between(marks_10th_range[0], marks_10th_range[1])) &
+        (filtered_df['marks_12th'].isna() | filtered_df['marks_12th'].between(marks_12th_range[0], marks_12th_range[1]))
     ]
 
     # First Row: KPIs
@@ -496,82 +500,121 @@ def create_dashboard(df):
     with col3:
         with st.container(border=True):
            all_skills = [skill for skills in filtered_df['tech_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
-           top_skill = Counter(all_skills).most_common(1)[0][0] if all_skills else "N/A"
+           if all_skills:
+               skill_counts = Counter(all_skills)
+               top_skill = skill_counts.most_common(1)[0][0] if skill_counts else "N/A"
+           else:
+               top_skill = "N/A"
            st.metric("Top Skill", top_skill)
 
     # Second Row: Area Graph for All Technical Skills
     with st.container():
         all_skills = [skill for skills in filtered_df['tech_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
-        skills_count = Counter(all_skills)
-        skills_df = pd.DataFrame.from_dict(skills_count, orient='index').reset_index()
-        skills_df.columns = ['Skill', 'Count']
-        fig_skills = px.area(skills_df.sort_values('Count', ascending=False),
-                           x='Skill',
-                           y='Count',
-                           title='Technical Skills Distribution')
-        fig_skills.update_layout(
-            xaxis={'tickangle': 45},
-        )
-        st.plotly_chart(fig_skills, use_container_width=True)
+        if all_skills:
+            skills_count = Counter(all_skills)
+            skills_df = pd.DataFrame.from_dict(skills_count, orient='index').reset_index()
+            skills_df.columns = ['Skill', 'Count']
+            fig_skills = px.area(skills_df.sort_values('Count', ascending=False),
+                               x='Skill',
+                               y='Count',
+                               title='Technical Skills Distribution')
+            fig_skills.update_layout(
+                xaxis={'tickangle': 45},
+            )
+            st.plotly_chart(fig_skills, use_container_width=True)
+        else:
+            st.info("No technical skills data available")
 
     # Third Row: Line Graph for Soft Skills and Donut for CGPA
     col1, col2 = st.columns([2,1], gap="medium")
     with col1:
         with st.container():
             soft_skills = [skill for skills in filtered_df['soft_skills'].str.split(', ') if isinstance(skills, list) for skill in skills if skill != 'None']
-            soft_skills_count = Counter(soft_skills)
-            soft_skills_df = pd.DataFrame.from_dict(soft_skills_count, orient='index').reset_index()
-            soft_skills_df.columns = ['Skill', 'Count']
-            fig_soft = px.line(soft_skills_df,
-                             x='Skill',
-                             y='Count',
-                             title='Soft Skills Distribution')
-            st.plotly_chart(fig_soft, use_container_width=True)
+            if soft_skills:
+                soft_skills_count = Counter(soft_skills)
+                soft_skills_df = pd.DataFrame.from_dict(soft_skills_count, orient='index').reset_index()
+                soft_skills_df.columns = ['Skill', 'Count']
+                fig_soft = px.line(soft_skills_df,
+                                 x='Skill',
+                                 y='Count',
+                                 title='Soft Skills Distribution')
+                st.plotly_chart(fig_soft, use_container_width=True)
+            else:
+                st.info("No soft skills data available")
 
     with col2:
         with st.container():
-            cgpa_ranges = pd.cut(filtered_df['cgpa'],
-                               bins=[0, 6, 7, 8, 9, 10],
-                               labels=['<6', '6-7', '7-8', '8-9', '9-10'])
-            cgpa_dist = cgpa_ranges.value_counts().sort_index()
-            fig_cgpa = go.Figure(data=[go.Pie(labels=cgpa_dist.index,
-                                            values=cgpa_dist.values,
-                                            hole=.3)])
-            fig_cgpa.update_layout(title='CGPA Distribution')
-            st.plotly_chart(fig_cgpa, use_container_width=True)
+            if not filtered_df['cgpa'].isna().all():
+                # Create bins only if we have valid CGPA data
+                cgpa_bins = [0, 6, 7, 8, 9, 10]
+                cgpa_ranges = pd.cut(filtered_df['cgpa'].dropna(),
+                                   bins=cgpa_bins,
+                                   labels=['<6', '6-7', '7-8', '8-9', '9-10'])
+                if not cgpa_ranges.empty:
+                    cgpa_dist = cgpa_ranges.value_counts().sort_index()
+                    fig_cgpa = go.Figure(data=[go.Pie(labels=cgpa_dist.index,
+                                                values=cgpa_dist.values,
+                                                hole=.3)])
+                    fig_cgpa.update_layout(title='CGPA Distribution')
+                    st.plotly_chart(fig_cgpa, use_container_width=True)
+                else:
+                    st.info("No CGPA distribution data available")
+            else:
+                st.info("No CGPA data available")
 
     # Fourth Row: Bar Graph for Departments and Pie for 10th, 12th Percentage
     col1, col2, col3 = st.columns([2,1,1], gap='medium')
     with col1:
         with st.container():
-            dept_count = filtered_df['department'].value_counts()
-            fig_dept = px.bar(x=dept_count.index,
-                            y=dept_count.values,
-                            title='Department Distribution')
-            st.plotly_chart(fig_dept, use_container_width=True)
+            if not filtered_df.empty:
+                dept_count = filtered_df['department'].value_counts()
+                if not dept_count.empty:
+                    fig_dept = px.bar(x=dept_count.index,
+                                    y=dept_count.values,
+                                    title='Department Distribution')
+                    st.plotly_chart(fig_dept, use_container_width=True)
+                else:
+                    st.info("No department data available")
+            else:
+                st.info("No data available for department distribution")
 
     with col2:
         with st.container():
-            marks_10th_bins = pd.cut(filtered_df['marks_10th'],
-                                   bins=[0, 60, 70, 80, 90, 100],
-                                   labels=['<60', '60-70', '70-80', '80-90', '90-100'])
-            marks_10th_dist = marks_10th_bins.value_counts().sort_index()
-            fig_10th = px.pie(names=marks_10th_dist.index,
-                            values=marks_10th_dist.values,
-                            title='10th Percentage Distribution')
-            st.plotly_chart(fig_10th, use_container_width=True)
+            if not filtered_df['marks_10th'].isna().all():
+                # Create bins only if we have valid 10th marks data
+                marks_10th_bins = [0, 60, 70, 80, 90, 100]
+                marks_10th_ranges = pd.cut(filtered_df['marks_10th'].dropna(),
+                                         bins=marks_10th_bins,
+                                         labels=['<60', '60-70', '70-80', '80-90', '90-100'])
+                if not marks_10th_ranges.empty:
+                    marks_10th_dist = marks_10th_ranges.value_counts().sort_index()
+                    fig_10th = px.pie(names=marks_10th_dist.index,
+                                    values=marks_10th_dist.values,
+                                    title='10th Percentage Distribution')
+                    st.plotly_chart(fig_10th, use_container_width=True)
+                else:
+                    st.info("No 10th marks distribution data available")
+            else:
+                st.info("No 10th marks data available")
 
     with col3:
         with st.container():
-            marks_12th_bins = pd.cut(filtered_df['marks_12th'],
-                                   bins=[0, 60, 70, 80, 90, 100],
-                                   labels=['<60', '60-70', '70-80', '80-90', '90-100'])
-            marks_12th_dist = marks_12th_bins.value_counts().sort_index()
-            fig_12th = px.pie(names=marks_12th_dist.index,
-                            values=marks_12th_dist.values,
-                            title='12th Percentage Distribution')
-            st.plotly_chart(fig_12th, use_container_width=True)
-
+            if not filtered_df['marks_12th'].isna().all():
+                # Create bins only if we have valid 12th marks data
+                marks_12th_bins = [0, 60, 70, 80, 90, 100]
+                marks_12th_ranges = pd.cut(filtered_df['marks_12th'].dropna(),
+                                         bins=marks_12th_bins,
+                                         labels=['<60', '60-70', '70-80', '80-90', '90-100'])
+                if not marks_12th_ranges.empty:
+                    marks_12th_dist = marks_12th_ranges.value_counts().sort_index()
+                    fig_12th = px.pie(names=marks_12th_dist.index,
+                                    values=marks_12th_dist.values,
+                                    title='12th Percentage Distribution')
+                    st.plotly_chart(fig_12th, use_container_width=True)
+                else:
+                    st.info("No 12th marks distribution data available")
+            else:
+                st.info("No 12th marks data available")
     # Filtered Students Table
     st.markdown("### Filtered Students")
     display_df = filtered_df[['name', 'email', 'phone_number', 'degree', 'cgpa', 'department', 'marks_10th', 'marks_12th', 'tech_skills', 'soft_skills']]
