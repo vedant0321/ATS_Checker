@@ -1,8 +1,8 @@
-.devcontainer/
-.streamlit/
+.devcontainer
+.streamlit
 /__pycache__/
-llm/
-json_creation/
-leo/
+llm
+json_creation
+leo
 
 
