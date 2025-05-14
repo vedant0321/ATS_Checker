@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 from firebase_config import auth_pyrebase, save_user_data
 
 # Helper function to add custom CSS styles
@@ -42,21 +43,55 @@ def add_custom_css():
 # Helper function to create a new user
 def create_new_user(email, password, name):
     try:
+        # Input validation before Firebase call
+        if len(name.strip()) < 2:
+            st.error("Name must be at least 2 characters long.")
+            return None
+        if len(password) < 6:
+            st.error("Password must be at least 6 characters long.")
+            return None
+            
         # Create user using Firebase authentication
         user = auth_pyrebase.create_user_with_email_and_password(email, password)
-        # Save user data to the database
-        save_user_data(user['localId'], name, email)
-        return user
+        
+        # Sign in to get the id token
+        user_auth = auth_pyrebase.sign_in_with_email_and_password(email, password)
+        id_token = user_auth['idToken']
+        
+        # Save user data to the database with the token
+        try:
+            save_user_data(user['localId'], name, email, id_token)
+        except Exception as db_error:
+            st.error(f"Account created but failed to save user data: {str(db_error)}")
+            return user
+            
+        return user_auth  # Return the signed-in user with token
+        
     except Exception as e:
-        error_message = str(e).lower()
-        if "email already in use" in error_message:
-            st.error("This email is already in use. Please log in or use another email.")
-        elif "weak password" in error_message:
-            st.error("Password should be at least 6 characters.")
-        elif "invalid email" in error_message:
-            st.error("Please enter a valid email address.")
-        else:
-            st.error(f"An error occurred: {e}")
+        # Try to parse the error as JSON (Firebase error format)
+        try:
+            error_str = str(e)
+            # Extract JSON portion from the error message
+            if '{' in error_str:
+                json_str = error_str[error_str.index('{'):]
+                error_data = json.loads(json_str)
+                error_message = error_data.get('error', {}).get('message', '').lower()
+                
+                if "email_exists" in error_message:
+                    st.error("This email is already registered. Please log in or use a different email.")
+                elif "weak_password" in error_message:
+                    st.error("Password is too weak. Use at least 6 characters with a mix of letters and numbers.")
+                elif "invalid_email" in error_message:
+                    st.error("Invalid email format. Please enter a valid email address.")
+                elif "too_many_requests" in error_message:
+                    st.error("Too many attempts. Please wait a few minutes and try again.")
+                else:
+                    st.error(f"Signup failed: {error_message}. Please try again or contact support.")
+            else:
+                st.error(f"Signup failed: {error_str}. Please try again or contact support.")
+        except json.JSONDecodeError:
+            # If JSON parsing fails, fall back to raw error message
+            st.error(f"Signup failed: {str(e)}. Please try again or contact support.")
         return None
 
 # Function to manage the signup page
@@ -75,21 +110,26 @@ def signup_page():
         email = st.text_input("Email", placeholder="Enter your email")
         password = st.text_input("Password", placeholder="Enter your password", type="password")
 
-        # Basic validation
         if st.button("Sign Up"):
-            if not name or not email or not password:
+            # Initial client-side validation
+            if not all([name.strip(), email.strip(), password.strip()]):
                 st.error("All fields (Name, Email, Password) are required.")
             else:
-                user = create_new_user(email, password, name)
-                if user:
-                    st.success("Account created successfully!")
-                    st.session_state["user"] = {
-                        "localId": user['localId'],
-                        "email": email,
-                        "name": name
-                    }
-                    st.session_state["selected_page"] = "Student"
-                    st.rerun()
+                with st.spinner("Creating account..."):
+                    user = create_new_user(email, password, name)
+                    if user:
+                        try:
+                            st.success("Account created successfully!")
+                            st.session_state["user"] = {
+                                "localId": user['localId'],
+                                "email": email,
+                                "name": name,
+                                "idToken": user['idToken']  # Store the token in session state
+                            }
+                            st.session_state["selected_page"] = "Student"
+                            st.rerun()
+                        except Exception as session_error:
+                            st.error(f"Account created but failed to initialize session: {str(session_error)}")
 
         # Redirect to login
         col1, col2 = st.columns(2)
