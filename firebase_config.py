@@ -29,13 +29,62 @@ firebase = pyrebase.initialize_app(firebase_config)
 auth_pyrebase = firebase.auth()
 database = firebase.database()
 
-def save_user_data(user_id, name, email):
-    user_token = auth_pyrebase.current_user['idToken']
-    database.child("users").child(user_id).set({
-        "name": name,
-        "email": email
-    }, user_token)
+def save_user_data(user_id, name, email, id_token=None):
+    """
+    Save user data to Firebase Realtime Database.
+    If id_token is provided, it will use that token.
+    If not, it will try to use the current user's token if available.
+    """
+    try:
+        # If token is provided directly, use it
+        if id_token:
+            database.child("users").child(user_id).set({
+                "name": name,
+                "email": email
+            }, id_token)
+            return True
+        # Otherwise try to use current user's token
+        elif auth_pyrebase.current_user:
+            user_token = auth_pyrebase.current_user.get('idToken')
+            if user_token:
+                database.child("users").child(user_id).set({
+                    "name": name,
+                    "email": email
+                }, user_token)
+                return True
+        # If no token is available, use admin SDK
+        else:
+            # Use Firebase Admin SDK instead
+            ref = firebase_admin.db.reference(f"/users/{user_id}")
+            ref.set({
+                "name": name,
+                "email": email
+            })
+            return True
+    except Exception as e:
+        print(f"Error saving user data: {str(e)}")
+        return False
 
-def get_user_data(user_id):
-    user_token = auth_pyrebase.current_user['idToken']
-    return database.child("users").child(user_id).get(user_token).val()
+def get_user_data(user_id, id_token=None):
+    """
+    Get user data from Firebase Realtime Database.
+    If id_token is provided, it will use that token.
+    If not, it will try to use the current user's token if available.
+    """
+    try:
+        # If token is provided directly, use it
+        if id_token:
+            return database.child("users").child(user_id).get(id_token).val()
+        # Otherwise try to use current user's token
+        elif auth_pyrebase.current_user:
+            user_token = auth_pyrebase.current_user.get('idToken')
+            if user_token:
+                return database.child("users").child(user_id).get(user_token).val()
+        # If no token is available, use admin SDK
+        else:
+            # Use Firebase Admin SDK instead
+            ref = firebase_admin.db.reference(f"/users/{user_id}")
+            return ref.get()
+    except Exception as e:
+        print(f"Error getting user data: {str(e)}")
+        return None
