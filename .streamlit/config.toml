@@ -5,4 +5,4 @@ secondaryBackgroundColor = "#000000"  # Sidebar background
 textColor = "#fafafa"  # Text color
 font = "sans serif"  # Font (options: 'sans serif', 'serif', 'monospace')
 [server]
-fileWatcherType = "none"
+fileWatcherType = "none" 
