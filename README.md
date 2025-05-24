@@ -78,7 +78,7 @@ streamlit run main.py
 
 
 ## LICENSE
-
+![License ](https://github.com/vedant0321/ATS_Checker/blob/main/LICENSE)
 Our code is released under the MIT License. Our model is intended for academic research purposes only and may **NOT** be used for commercial purposes.
 
 You are free to use, modify, and distribute this model in academic settings, provided that the following condition should met:
