@@ -1,9 +1,12 @@
 import firebase_admin
 from firebase_admin import credentials, auth, db
 import pyrebase
+import yaml
+import os
+
 
 # Initialize the Firebase Admin SDK with the service account key
-cred = credentials.Certificate("serviceAccountKey.json")
+cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")
 # Check if Firebase Admin is already initialized
 try:
     firebase_app = firebase_admin.get_app()
@@ -12,16 +15,28 @@ except ValueError:
         'databaseURL': 'https://afit-15355-default-rtdb.firebaseio.com'
     })
 
+# with open("config.yaml", "r") as file:
+#     config = yaml.safe_load(file)
+#     apikey = config["firebase"]["apiKey"]
+#     auth_domain = config["firebase"]["authDomain"]
+#     database_url = config["firebase"]["databaseURL"]
+#     project_id = config["firebase"]["projectId"]
+#     storage_bucket = config["firebase"]["storageBucket"]    
+#     messaging_sender_id = config["firebase"]["messagingSenderId"]
+#     app_id = config["firebase"]["appId"]
+#     measurement_id = config["firebase"]["measurementId"]
+    # service_account_key = config["firebase"]["serviceAccountKey"]
+
 # Pyrebase configuration (for user sign-in and sign-up)
 firebase_config = {
-    "apiKey": "AIzaSyCzWLxei08ODPFqXddH1kisF8DqcdLZPQE",
-    "authDomain": "afit-15355.firebaseapp.com",
-    "databaseURL": "https://afit-15355-default-rtdb.firebaseio.com",
-    "projectId": "afit-15355",
-    "storageBucket": "afit-15355.appspot.com",
-    "messagingSenderId": "737169749315",
-    "appId": "1:737169749315:web:bdc13ece735ba831782bf6",
-    "measurementId": "G-1H8HK7ZXKD",
+    "apiKey": os.getenv("API_KEY"),
+    "authDomain": os.getenv("AUTH_DOMAIN"),
+    "databaseURL": os.getenv("DATABASE_URL"),
+    "projectId": os.getenv("PROJECT_ID"),
+    "storageBucket": os.getenv("STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("MESSAGING_SENDER_ID"),
+    "appId": os.getenv("APP_ID"),
+    "measurementId": os.getenv("MESSUREMENT_ID"),
 }
 
 firebase = pyrebase.initialize_app(firebase_config)

@@ -2,9 +2,9 @@ import streamlit as st
 import google.generativeai as genai
 import plotly.graph_objects as go
 from utils import process_single_pdf, extract_score_and_feedback
-
+import os
 # Configure generative AI with API key
-genai.configure(api_key='AIzaSyBDGiMgAEF4zEX-w9nkS-cl3DSFFrFm2DA')
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 STYLES = """
 <style> 

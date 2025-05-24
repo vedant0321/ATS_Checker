@@ -3,3 +3,5 @@ llm
 json_creation
 leo
 temp
+.env
+config.yaml
