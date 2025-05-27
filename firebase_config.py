@@ -6,7 +6,7 @@ import os
 
 
 # Initialize the Firebase Admin SDK with the service account key
-cred = credentials.Certificate("etc/secrets/serviceAccountKey.json")
+cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")
 # Check if Firebase Admin is already initialized
 try:
     firebase_app = firebase_admin.get_app()
